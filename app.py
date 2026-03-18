@@ -2,9 +2,9 @@ import requests
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Alldevice Downtimes", layout="wide")
+st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
 
-st.title("Alldevice — простои оборудования")
+st.title("Alldevice — iekārtu dīkstāves")
 
 BASE_URL = st.secrets["BASE_URL"]
 USERNAME = st.secrets["USERNAME"]
@@ -25,23 +25,43 @@ response = requests.post(BASE_URL, json=payload, timeout=60)
 data = response.json()
 
 if not data.get("success"):
-    st.error(f"Ошибка API: {data}")
+    st.error(f"API kļūda: {data}")
     st.stop()
 
 rows = data.get("response", [])
 
 if not rows:
-    st.warning("Нет данных по простоям")
+    st.warning("Nav atrasti dīkstāves dati")
     st.stop()
 
 df = pd.DataFrame(rows)
 
 df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
 df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
-df["duration_hours"] = df["duration_seconds"] / 3600
+df["duration_hours"] = df["duration_seconds"].fillna(0) / 3600
 df["month"] = df["start_date"].dt.to_period("M").astype(str)
 
-st.subheader("Таблица простоев")
+location_parts = df["device_location"].fillna("").str.split(" / ")
+
+def extract_line(parts):
+    for part in parts:
+        part = part.strip()
+        if (
+            "LĪNIJA" in part
+            or "STARLINGER" in part
+            or "VABEC" in part
+            or "WET" in part
+            or "ST R3/R4" in part
+        ):
+            return part
+    return "Cits"
+
+df["line"] = location_parts.apply(extract_line)
+
+st.subheader("Atrastās līnijas")
+st.write(sorted(df["line"].dropna().unique().tolist()))
+
+st.subheader("Dīkstāves tabula")
 st.dataframe(df, use_container_width=True)
 
 top_devices = (
@@ -51,7 +71,7 @@ top_devices = (
     .reset_index()
 )
 
-st.subheader("Суммарный простой по устройствам, часы")
+st.subheader("Kopējā dīkstāve pa iekārtām, stundas")
 st.bar_chart(top_devices.set_index("device_name"))
 
 top_categories = (
@@ -61,7 +81,7 @@ top_categories = (
     .reset_index()
 )
 
-st.subheader("Суммарный простой по категориям, часы")
+st.subheader("Kopējā dīkstāve pa kategorijām, stundas")
 st.bar_chart(top_categories.set_index("cat_name"))
 
 by_month = (
@@ -71,5 +91,5 @@ by_month = (
     .reset_index()
 )
 
-st.subheader("Простой по месяцам, часы")
+st.subheader("Dīkstāve pa mēnešiem, stundas")
 st.line_chart(by_month.set_index("month"))
