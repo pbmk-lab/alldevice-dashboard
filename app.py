@@ -41,6 +41,7 @@ df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
 df["duration_hours"] = df["duration_seconds"].fillna(0) / 3600
 df["month"] = df["start_date"].dt.to_period("M").astype(str)
 
+# --- LĪNIJU NOTEIKŠANA ---
 location_parts = df["device_location"].fillna("").str.split(" / ")
 
 def extract_line(parts):
@@ -58,38 +59,58 @@ def extract_line(parts):
 
 df["line"] = location_parts.apply(extract_line)
 
-st.subheader("Atrastās līnijas")
-st.write(sorted(df["line"].dropna().unique().tolist()))
+# --- FILTRI ---
+st.sidebar.header("Filtri")
 
-st.subheader("Dīkstāves tabula")
-st.dataframe(df, use_container_width=True)
+lines = sorted(df["line"].dropna().unique())
+selected_lines = st.sidebar.multiselect(
+    "Izvēlies līnijas",
+    options=lines,
+    default=lines
+)
 
-top_devices = (
-    df.groupby("device_name", dropna=False)["duration_hours"]
+date_range = st.sidebar.date_input(
+    "Izvēlies periodu",
+    [df["start_date"].min(), df["start_date"].max()]
+)
+
+df_filtered = df[
+    (df["line"].isin(selected_lines)) &
+    (df["start_date"] >= pd.to_datetime(date_range[0])) &
+    (df["start_date"] <= pd.to_datetime(date_range[1]))
+]
+
+# --- MTTR ---
+df_closed = df_filtered[df_filtered["is_ended"] == True]
+
+if len(df_closed) > 0:
+    mttr = df_closed["duration_hours"].mean()
+else:
+    mttr = 0
+
+st.metric("MTTR (vidējais remonta laiks, stundās)", round(mttr, 2))
+
+# --- MTTR pa mēnešiem ---
+mttr_by_month = (
+    df_closed.groupby("month")["duration_hours"]
+    .mean()
+    .reset_index()
+)
+
+st.subheader("MTTR pa mēnešiem")
+st.line_chart(mttr_by_month.set_index("month"))
+
+# --- TOP līnijas pēc dīkstāves ---
+top_lines = (
+    df_filtered.groupby("line")["duration_hours"]
     .sum()
     .sort_values(ascending=False)
     .reset_index()
 )
 
-st.subheader("Kopējā dīkstāve pa iekārtām, stundas")
-st.bar_chart(top_devices.set_index("device_name"))
+st.subheader("Dīkstāve pa līnijām (stundas)")
+st.bar_chart(top_lines.set_index("line"))
 
-top_categories = (
-    df.groupby("cat_name", dropna=False)["duration_hours"]
-    .sum()
-    .sort_values(ascending=False)
-    .reset_index()
-)
-
-st.subheader("Kopējā dīkstāve pa kategorijām, stundas")
-st.bar_chart(top_categories.set_index("cat_name"))
-
-by_month = (
-    df.groupby("month", dropna=False)["duration_hours"]
-    .sum()
-    .sort_index()
-    .reset_index()
-)
-
-st.subheader("Dīkstāve pa mēnešiem, stundas")
-st.line_chart(by_month.set_index("month"))
+# --- TABULA ---
+st.subheader("Dīkstāves dati")
+st.dataframe(df_filtered, use_container_width=True)
