@@ -373,24 +373,6 @@ df_analysis["type"] = df_analysis["cat_name"].apply(classify_type)
 df_filtered["type"] = df_filtered["cat_name"].apply(classify_type)
 
 # ---------- DATU KVALITĀTE ----------
-def apply_common_layout(fig, height=400):
-    fig.update_layout(
-        height=height,
-        plot_bgcolor="#0E1117",      # фон графика
-        paper_bgcolor="#0E1117",     # фон вокруг
-        font=dict(color="#F3F6FA"),
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(255,255,255,0.05)",
-            zerolinecolor="rgba(255,255,255,0.1)"
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(255,255,255,0.05)",
-            zerolinecolor="rgba(255,255,255,0.1)"
-        )
-    )
 missing_category = (df_analysis["cat_name"] == "Nav norādīts").sum()
 total_records = len(df_analysis)
 
@@ -411,6 +393,24 @@ else:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- DATU KVALITĀTE PĒC LĪNIJĀM ----------
+def apply_common_layout(fig, height=400):
+    fig.update_layout(
+        height=height,
+        plot_bgcolor="#0E1117",      # фон графика
+        paper_bgcolor="#0E1117",     # фон вокруг
+        font=dict(color="#F3F6FA"),
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(255,255,255,0.05)",
+            zerolinecolor="rgba(255,255,255,0.1)"
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(255,255,255,0.05)",
+            zerolinecolor="rgba(255,255,255,0.1)"
+        )
+    )
 quality_by_line = (
     df_analysis.assign(missing=df_analysis["cat_name"] == "Nav norādīts")
     .groupby("device_location")
