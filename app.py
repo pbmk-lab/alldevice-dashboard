@@ -16,9 +16,8 @@ TEXT_COLOR = "#F3F6FA"
 MUTED_TEXT = "#A9B4C2"
 ACCENT_1 = "#00E5FF"
 ACCENT_2 = "#FFB300"
-ACCENT_SUCCESS = "#00E676"
-ACCENT_WARNING = "#FFC107"
-ACCENT_DANGER = "#FF5252"
+ACCENT_3 = "#7C4DFF"
+ACCENT_4 = "#00C853"
 
 def apply_common_layout(fig, height=420):
     fig.update_layout(
@@ -26,18 +25,10 @@ def apply_common_layout(fig, height=420):
         height=height,
         paper_bgcolor=CUSTOM_BG,
         plot_bgcolor=CARD_BG,
-        margin=dict(l=20, r=20, t=30, b=20),
+        margin=dict(l=20, r=20, t=40, b=20),
         font=dict(color=TEXT_COLOR),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR,
-            zeroline=False
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR,
-            zeroline=False
-        ),
+        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
+        yaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
             font=dict(color=TEXT_COLOR)
@@ -116,29 +107,6 @@ st.markdown(
         margin-bottom: 0.6rem;
     }}
 
-    .insight-card {{
-        background: linear-gradient(180deg, #161C25 0%, #10151D 100%);
-        border: 1px solid {BORDER_COLOR};
-        border-radius: 18px;
-        padding: 16px 18px 10px 18px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
-        margin-top: 6px;
-        margin-bottom: 14px;
-    }}
-
-    .insight-title {{
-        color: {TEXT_COLOR};
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 0.6rem;
-    }}
-
-    .insight-list {{
-        color: {TEXT_COLOR};
-        font-size: 0.98rem;
-        line-height: 1.8;
-    }}
-
     div[data-testid="stDataFrame"] {{
         border: 1px solid {BORDER_COLOR};
         border-radius: 16px;
@@ -159,7 +127,7 @@ st.markdown(
 # ---------- VIRSRAKSTS ----------
 st.markdown('<div class="pro-title">Alldevice — iekārtu dīkstāves</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="pro-subtitle">Vadības panelis: MTTR, MTBF, prioritātes, līniju un iekārtu dīkstāves analīze</div>',
+    '<div class="pro-subtitle">MTTR, MTBF, dīkstāves analīze pa līnijām, kategorijām un iekārtām</div>',
     unsafe_allow_html=True
 )
 
@@ -180,13 +148,8 @@ payload = {
     "date_end": "2026-12-31"
 }
 
-try:
-    response = requests.post(BASE_URL, json=payload, timeout=60)
-    response.raise_for_status()
-    data = response.json()
-except Exception as e:
-    st.error(f"Neizdevās iegūt datus no API: {e}")
-    st.stop()
+response = requests.post(BASE_URL, json=payload, timeout=60)
+data = response.json()
 
 if not data.get("success"):
     st.error(f"API kļūda: {data}")
@@ -200,17 +163,15 @@ if not rows:
 # ---------- DATI ----------
 df = pd.DataFrame(rows)
 
-df["start_date"] = pd.to_datetime(df.get("start_date"), errors="coerce")
-df["end_date"] = pd.to_datetime(df.get("end_date"), errors="coerce")
-df["duration_seconds"] = pd.to_numeric(df.get("duration_seconds"), errors="coerce").fillna(0)
+df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
+df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
+df["duration_seconds"] = pd.to_numeric(df["duration_seconds"], errors="coerce").fillna(0)
 df["duration_hours"] = df["duration_seconds"] / 3600
 df["month"] = df["start_date"].dt.to_period("M").astype(str)
-
-df["cat_name"] = df.get("cat_name", "").fillna("").replace("", "Nav norādīts")
-df["device_name"] = df.get("device_name", "").fillna("Nav norādīts")
-df["device_location"] = df.get("device_location", "").fillna("Nav norādīts")
-df["comments"] = df.get("comments", "").fillna("")
-df["is_ended"] = df.get("is_ended", False).fillna(False)
+df["cat_name"] = df["cat_name"].fillna("").replace("", "Nav norādīts")
+df["device_name"] = df["device_name"].fillna("Nav norādīts")
+df["device_location"] = df["device_location"].fillna("Nav norādīts")
+df["comments"] = df["comments"].fillna("")
 
 # ---------- LĪNIJU KARTE ----------
 LINE_MAPPING = {
@@ -234,7 +195,7 @@ LINE_MAPPING = {
     "18. ATTĪRĪŠANAS IEKĀRTAS": ["ATTĪRĪŠANAS IEKĀRTAS"]
 }
 
-def extract_line(location: str) -> str:
+def extract_line(location):
     location = str(location).upper()
     for line_name, keywords in LINE_MAPPING.items():
         for keyword in keywords:
@@ -257,10 +218,6 @@ selected_lines = st.sidebar.multiselect(
 min_date = df["start_date"].min()
 max_date = df["start_date"].max()
 
-if pd.isna(min_date) or pd.isna(max_date):
-    st.error("Datu kopā nav korektu datumu")
-    st.stop()
-
 date_range = st.sidebar.date_input(
     "Izvēlies periodu",
     value=(min_date.date(), max_date.date())
@@ -279,20 +236,12 @@ df_filtered = df[
     (df["start_date"] <= end_filter)
 ].copy()
 
-if df_filtered.empty:
-    st.warning("Izvēlētajiem filtriem nav datu")
-    st.stop()
-
 df_filtered["month"] = df_filtered["start_date"].dt.to_period("M").astype(str)
 
 # ---------- TIPS: PLĀNOTS / AVĀRIJA ----------
-def classify_type(cat_name: str) -> str:
-    cat_upper = str(cat_name).upper()
-    if "PLĀNOTS" in cat_upper:
-        return "Plānots"
-    return "Avārija"
-
-df_filtered["type"] = df_filtered["cat_name"].apply(classify_type)
+df_filtered["type"] = df_filtered["cat_name"].apply(
+    lambda x: "Plānots" if "PLĀNOTS" in str(x).upper() else "Avārija"
+)
 
 # ---------- KPI ----------
 df_closed = df_filtered[
@@ -301,13 +250,14 @@ df_closed = df_filtered[
     (df_filtered["duration_hours"] < 24)
 ].copy()
 
-mttr = df_closed["duration_hours"].mean() if not df_closed.empty else 0
+mttr = df_closed["duration_hours"].mean() if len(df_closed) > 0 else 0
 
 df_failures = df_filtered.sort_values("start_date").copy()
 if len(df_failures) > 1:
     df_failures["prev_start"] = df_failures["start_date"].shift(1)
     df_failures["mtbf_hours"] = (
-        (df_failures["start_date"] - df_failures["prev_start"]).dt.total_seconds() / 3600
+        (df_failures["start_date"] - df_failures["prev_start"])
+        .dt.total_seconds() / 3600
     )
     mtbf = df_failures["mtbf_hours"].dropna().mean()
 else:
@@ -339,14 +289,6 @@ with k4:
         f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>',
         unsafe_allow_html=True
     )
-
-# ---------- ALERT ----------
-if mttr > 10:
-    st.error("⚠️ Augsts MTTR! Nepieciešama uzmanība — remonta laiks ir pārāk liels.")
-elif mttr > 5:
-    st.warning("⚠️ MTTR virs normas.")
-else:
-    st.success("✅ MTTR ir normas robežās.")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -383,12 +325,6 @@ type_hours = (
     .sum()
     .sort_values("duration_hours", ascending=False)
 )
-
-# ---------- PRIORITĀTES LĪNIJĀM ----------
-if not downtime_by_line.empty:
-    downtime_by_line["priority"] = downtime_by_line["duration_hours"].apply(
-        lambda x: "HIGH" if x > 500 else ("MEDIUM" if x > 100 else "LOW")
-    )
 
 # ---------- GRAFIKI ----------
 fig_mttr = None
@@ -461,19 +397,16 @@ if not downtime_by_line.empty:
         y="line",
         orientation="h",
         text="duration_hours",
-        color="priority",
-        color_discrete_map={
-            "HIGH": ACCENT_DANGER,
-            "MEDIUM": ACCENT_WARNING,
-            "LOW": ACCENT_SUCCESS
-        },
-        labels={"duration_hours": "Stundas", "line": "Līnija", "priority": "Prioritāte"}
+        color="duration_hours",
+        color_continuous_scale="Viridis",
+        labels={"duration_hours": "Stundas", "line": "Līnija"}
     )
     fig_lines.update_traces(
         texttemplate="%{text:.1f}",
         textposition="outside",
         marker_line_width=1.5
     )
+    fig_lines.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_lines, height=430)
 
 fig_devices = None
@@ -502,11 +435,11 @@ if not type_hours.empty:
         type_hours,
         names="type",
         values="duration_hours",
-        hole=0.60,
+        hole=0.6,
         color="type",
         color_discrete_map={
-            "Plānots": ACCENT_SUCCESS,
-            "Avārija": ACCENT_DANGER
+            "Plānots": "#00C853",
+            "Avārija": "#FF5252"
         }
     )
     fig_cat.update_traces(
@@ -557,31 +490,6 @@ if fig_devices is not None:
     st.plotly_chart(fig_devices, use_container_width=True)
 else:
     st.info("Nav datu izvēlētajiem filtriem")
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ---------- AUTOMĀTISKIE SECINĀJUMI ----------
-top_line = "-"
-top_device = "-"
-
-if not downtime_by_line.empty:
-    top_line = downtime_by_line.sort_values("duration_hours", ascending=False).iloc[0]["line"]
-
-if not downtime_by_device.empty:
-    top_device = downtime_by_device.sort_values("duration_hours", ascending=False).iloc[0]["device_name"]
-
-st.markdown('<div class="insight-card"><div class="insight-title">Automātiskie secinājumi</div>', unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div class="insight-list">
-    🔴 Kritiskākā līnija: <b>{top_line}</b><br>
-    ⚙️ Problemātiskākā iekārta: <b>{top_device}</b><br>
-    ⏱️ Vidējais MTTR: <b>{mttr:.2f} h</b><br>
-    🔁 Vidējais MTBF: <b>{mtbf:.2f} h</b><br>
-    📉 Kopējā dīkstāve filtrētajā periodā: <b>{total_downtime_hours:.1f} h</b>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- TABULA ----------
