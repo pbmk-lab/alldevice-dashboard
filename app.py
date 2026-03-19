@@ -6,12 +6,18 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
 
-# ---------- STILS ----------
+# ---------- TĒMA / KRĀSAS ----------
 PLOT_TEMPLATE = "plotly_dark"
-
 CUSTOM_BG = "#0E1117"
-CARD_BG = "#1A1D24"
+CARD_BG = "#151A22"
 GRID_COLOR = "rgba(255,255,255,0.08)"
+BORDER_COLOR = "rgba(255,255,255,0.08)"
+TEXT_COLOR = "#F3F6FA"
+MUTED_TEXT = "#A9B4C2"
+ACCENT_1 = "#00E5FF"
+ACCENT_2 = "#FFB300"
+ACCENT_3 = "#7C4DFF"
+ACCENT_4 = "#00C853"
 
 def apply_common_layout(fig, height=420):
     fig.update_layout(
@@ -20,24 +26,110 @@ def apply_common_layout(fig, height=420):
         paper_bgcolor=CUSTOM_BG,
         plot_bgcolor=CARD_BG,
         margin=dict(l=20, r=20, t=40, b=20),
-        font=dict(color="white"),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR
-        ),
+        font=dict(color=TEXT_COLOR),
+        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
+        yaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white")
+            font=dict(color=TEXT_COLOR)
         )
     )
     return fig
 
+# ---------- CSS ----------
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background-color: {CUSTOM_BG};
+        color: {TEXT_COLOR};
+    }}
+
+    section[data-testid="stSidebar"] {{
+        background-color: #11161D;
+        border-right: 1px solid {BORDER_COLOR};
+    }}
+
+    .block-container {{
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+        max-width: 1500px;
+    }}
+
+    .pro-title {{
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: {TEXT_COLOR};
+        margin-bottom: 0.2rem;
+    }}
+
+    .pro-subtitle {{
+        color: {MUTED_TEXT};
+        font-size: 0.95rem;
+        margin-bottom: 1.2rem;
+    }}
+
+    .kpi-card {{
+        background: linear-gradient(180deg, #171D26 0%, #121720 100%);
+        border: 1px solid {BORDER_COLOR};
+        border-radius: 18px;
+        padding: 18px 18px 14px 18px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        min-height: 110px;
+    }}
+
+    .kpi-label {{
+        color: {MUTED_TEXT};
+        font-size: 0.92rem;
+        margin-bottom: 0.35rem;
+    }}
+
+    .kpi-value {{
+        color: {TEXT_COLOR};
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }}
+
+    .chart-card {{
+        background: linear-gradient(180deg, #161C25 0%, #10151D 100%);
+        border: 1px solid {BORDER_COLOR};
+        border-radius: 18px;
+        padding: 14px 14px 6px 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        margin-bottom: 14px;
+    }}
+
+    .chart-title {{
+        color: {TEXT_COLOR};
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 0.6rem;
+    }}
+
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid {BORDER_COLOR};
+        border-radius: 16px;
+        overflow: hidden;
+    }}
+
+    hr {{
+        border: none;
+        border-top: 1px solid {BORDER_COLOR};
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # ---------- VIRSRAKSTS ----------
-st.title("Alldevice — iekārtu dīkstāves")
+st.markdown('<div class="pro-title">Alldevice — iekārtu dīkstāves</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="pro-subtitle">MTTR, MTBF, dīkstāves analīze pa līnijām, kategorijām un iekārtām</div>',
+    unsafe_allow_html=True
+)
 
 # ---------- SECRETS ----------
 BASE_URL = st.secrets["BASE_URL"]
@@ -45,7 +137,7 @@ USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 API_KEY = st.secrets["API_KEY"]
 
-# ---------- API PIEPRASĪJUMS ----------
+# ---------- API ----------
 payload = {
     "auth": {
         "username": USERNAME,
@@ -64,12 +156,11 @@ if not data.get("success"):
     st.stop()
 
 rows = data.get("response", [])
-
 if not rows:
     st.warning("Nav atrasti dīkstāves dati")
     st.stop()
 
-# ---------- DATU SAGATAVOŠANA ----------
+# ---------- DATI ----------
 df = pd.DataFrame(rows)
 
 df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
@@ -82,7 +173,7 @@ df["device_name"] = df["device_name"].fillna("Nav norādīts")
 df["device_location"] = df["device_location"].fillna("Nav norādīts")
 df["comments"] = df["comments"].fillna("")
 
-# ---------- FIKSĒTS LĪNIJU SARAKSTS ----------
+# ---------- LĪNIJU KARTE ----------
 LINE_MAPPING = {
     "01. 1 LĪNIJA": ["1 LĪNIJA"],
     "02. 2 LĪNIJA": ["2 LĪNIJA"],
@@ -115,7 +206,7 @@ def extract_line(location):
 df["line"] = df["device_location"].apply(extract_line)
 
 # ---------- FILTRI ----------
-st.sidebar.header("Filtri")
+st.sidebar.markdown("## Filtri")
 
 lines = list(LINE_MAPPING.keys())
 selected_lines = st.sidebar.multiselect(
@@ -147,7 +238,7 @@ df_filtered = df[
 
 df_filtered["month"] = df_filtered["start_date"].dt.to_period("M").astype(str)
 
-# ---------- MTTR ----------
+# ---------- KPI ----------
 df_closed = df_filtered[
     (df_filtered["is_ended"] == True) &
     (df_filtered["duration_hours"] > 0) &
@@ -156,9 +247,7 @@ df_closed = df_filtered[
 
 mttr = df_closed["duration_hours"].mean() if len(df_closed) > 0 else 0
 
-# ---------- MTBF ----------
 df_failures = df_filtered.sort_values("start_date").copy()
-
 if len(df_failures) > 1:
     df_failures["prev_start"] = df_failures["start_date"].shift(1)
     df_failures["mtbf_hours"] = (
@@ -170,17 +259,33 @@ else:
     df_failures["mtbf_hours"] = pd.NA
     mtbf = 0
 
-# ---------- KPI ----------
 total_downtime_hours = df_filtered["duration_hours"].sum()
 total_events = len(df_filtered)
 
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("MTTR (stundas)", f"{mttr:.2f}")
-k2.metric("MTBF (stundas)", f"{mtbf:.2f}")
-k3.metric("Kopējā dīkstāve", f"{total_downtime_hours:.0f}")
-k4.metric("Dīkstāves gadījumi", total_events)
 
-st.divider()
+with k1:
+    st.markdown(
+        f'<div class="kpi-card"><div class="kpi-label">MTTR (stundas)</div><div class="kpi-value">{mttr:.2f}</div></div>',
+        unsafe_allow_html=True
+    )
+with k2:
+    st.markdown(
+        f'<div class="kpi-card"><div class="kpi-label">MTBF (stundas)</div><div class="kpi-value">{mtbf:.2f}</div></div>',
+        unsafe_allow_html=True
+    )
+with k3:
+    st.markdown(
+        f'<div class="kpi-card"><div class="kpi-label">Kopējā dīkstāve</div><div class="kpi-value">{total_downtime_hours:.0f}</div></div>',
+        unsafe_allow_html=True
+    )
+with k4:
+    st.markdown(
+        f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>',
+        unsafe_allow_html=True
+    )
+
+st.markdown("<hr>", unsafe_allow_html=True)
 
 # ---------- AGREGĀCIJAS ----------
 mttr_by_month = (
@@ -224,19 +329,18 @@ if not mttr_by_month.empty:
         x=mttr_by_month["month"],
         y=mttr_by_month["duration_hours"],
         mode="lines+markers",
-        line=dict(width=4, color="#00E5FF"),
+        line=dict(width=4, color=ACCENT_1),
         marker=dict(size=8),
         fill="tozeroy",
-        fillcolor="rgba(0,191,255,0.20)",
+        fillcolor="rgba(0,229,255,0.18)",
         name="MTTR"
     ))
     fig_mttr.update_layout(
-        template=PLOT_TEMPLATE,
         title="",
         yaxis_title="MTTR (stundas)",
         xaxis_title="Mēnesis"
     )
-    apply_common_layout(fig_mttr, height=400)
+    apply_common_layout(fig_mttr, height=360)
 
 fig_mtbf = None
 if not mtbf_by_month.empty:
@@ -245,19 +349,18 @@ if not mtbf_by_month.empty:
         x=mtbf_by_month["month"],
         y=mtbf_by_month["mtbf_hours"],
         mode="lines+markers",
-        line=dict(width=4, color="#FFB300"),
+        line=dict(width=4, color=ACCENT_2),
         marker=dict(size=8),
         fill="tozeroy",
-        fillcolor="rgba(255,165,0,0.20)",
+        fillcolor="rgba(255,179,0,0.18)",
         name="MTBF"
     ))
     fig_mtbf.update_layout(
-        template=PLOT_TEMPLATE,
         title="",
         yaxis_title="MTBF (stundas)",
         xaxis_title="Mēnesis"
     )
-    apply_common_layout(fig_mtbf, height=400)
+    apply_common_layout(fig_mtbf, height=360)
 
 fig_lines = None
 if not downtime_by_line.empty:
@@ -276,11 +379,8 @@ if not downtime_by_line.empty:
         textposition="outside",
         marker_line_width=1.5
     )
-    fig_lines.update_layout(
-        template=PLOT_TEMPLATE,
-        coloraxis_showscale=False
-    )
-    apply_common_layout(fig_lines, height=650)
+    fig_lines.update_layout(coloraxis_showscale=False)
+    apply_common_layout(fig_lines, height=430)
 
 fig_devices = None
 if not downtime_by_device.empty:
@@ -299,10 +399,7 @@ if not downtime_by_device.empty:
         textposition="outside",
         marker_line_width=1.5
     )
-    fig_devices.update_layout(
-        template=PLOT_TEMPLATE,
-        coloraxis_showscale=False
-    )
+    fig_devices.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_devices, height=520)
 
 fig_cat = None
@@ -313,61 +410,58 @@ if not category_hours.empty:
         hole=0.60,
         textinfo="percent+label",
         marker=dict(
-            colors=px.colors.sequential.Blues,
+            colors=px.colors.sequential.Blues_r,
             line=dict(color="#000000", width=1)
         )
     )])
-    fig_cat.update_layout(
-        template=PLOT_TEMPLATE,
-        showlegend=True
-    )
-    apply_common_layout(fig_cat, height=500)
+    apply_common_layout(fig_cat, height=430)
 
 # ---------- IZKĀRTOJUMS ----------
 r1c1, r1c2 = st.columns(2)
 
 with r1c1:
-    st.subheader("MTTR pa mēnešiem")
+    st.markdown('<div class="chart-card"><div class="chart-title">MTTR pa mēnešiem</div>', unsafe_allow_html=True)
     if fig_mttr is not None:
         st.plotly_chart(fig_mttr, use_container_width=True)
     else:
         st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with r1c2:
-    st.subheader("MTBF pa mēnešiem")
+    st.markdown('<div class="chart-card"><div class="chart-title">MTBF pa mēnešiem</div>', unsafe_allow_html=True)
     if fig_mtbf is not None:
         st.plotly_chart(fig_mtbf, use_container_width=True)
     else:
         st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
-
-st.divider()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 r2c1, r2c2 = st.columns(2)
 
 with r2c1:
-    st.subheader("Dīkstāve pa līnijām")
+    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāve pa līnijām</div>', unsafe_allow_html=True)
     if fig_lines is not None:
         st.plotly_chart(fig_lines, use_container_width=True)
     else:
         st.info("Nav datu izvēlētajiem filtriem")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with r2c2:
-    st.subheader("Dīkstāves sadalījums pa kategorijām")
+    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums pa kategorijām</div>', unsafe_allow_html=True)
     if fig_cat is not None:
         st.plotly_chart(fig_cat, use_container_width=True)
     else:
         st.info("Nav datu kategoriju grafikam")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-st.divider()
-
-st.subheader("Top 10 iekārtas pēc dīkstāves")
+st.markdown('<div class="chart-card"><div class="chart-title">Top 10 iekārtas pēc dīkstāves</div>', unsafe_allow_html=True)
 if fig_devices is not None:
     st.plotly_chart(fig_devices, use_container_width=True)
 else:
     st.info("Nav datu izvēlētajiem filtriem")
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- TABULA ----------
-st.subheader("Dīkstāves dati")
+st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati</div>', unsafe_allow_html=True)
 
 show_columns = [
     "id",
@@ -384,3 +478,5 @@ show_columns = [
 
 existing_columns = [col for col in show_columns if col in df_filtered.columns]
 st.dataframe(df_filtered[existing_columns], use_container_width=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
