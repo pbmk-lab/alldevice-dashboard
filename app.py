@@ -24,7 +24,7 @@ def apply_common_layout(fig, height=420):
     )
     return fig
 
-# ---------- VIRSRaksts ----------
+# ---------- VIRSRAKSTS ----------
 st.title("Alldevice — iekārtu dīkstāves")
 
 # ---------- SECRETS ----------
@@ -33,7 +33,7 @@ USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 API_KEY = st.secrets["API_KEY"]
 
-# ---------- API ----------
+# ---------- API PIEPRASĪJUMS ----------
 payload = {
     "auth": {
         "username": USERNAME,
@@ -52,11 +52,12 @@ if not data.get("success"):
     st.stop()
 
 rows = data.get("response", [])
+
 if not rows:
     st.warning("Nav atrasti dīkstāves dati")
     st.stop()
 
-# ---------- DATI ----------
+# ---------- DATU SAGATAVOŠANA ----------
 df = pd.DataFrame(rows)
 
 df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
@@ -69,7 +70,7 @@ df["device_name"] = df["device_name"].fillna("Nav norādīts")
 df["device_location"] = df["device_location"].fillna("Nav norādīts")
 df["comments"] = df["comments"].fillna("")
 
-# ---------- LĪNIJU KARTE ----------
+# ---------- FIKSĒTS LĪNIJU SARAKSTS ----------
 LINE_MAPPING = {
     "01. 1 LĪNIJA": ["1 LĪNIJA"],
     "02. 2 LĪNIJA": ["2 LĪNIJA"],
@@ -145,6 +146,7 @@ mttr = df_closed["duration_hours"].mean() if len(df_closed) > 0 else 0
 
 # ---------- MTBF ----------
 df_failures = df_filtered.sort_values("start_date").copy()
+
 if len(df_failures) > 1:
     df_failures["prev_start"] = df_failures["start_date"].shift(1)
     df_failures["mtbf_hours"] = (
@@ -163,8 +165,8 @@ total_events = len(df_filtered)
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("MTTR (stundas)", f"{mttr:.2f}")
 k2.metric("MTBF (stundas)", f"{mtbf:.2f}")
-k3.metric("Kopējā dīkstāve (stundas)", f"{total_downtime_hours:.2f}")
-k4.metric("Dīkstāves gadījumu skaits", f"{total_events}")
+k3.metric("Kopējā dīkstāve", f"{total_downtime_hours:.0f}")
+k4.metric("Dīkstāves gadījumi", total_events)
 
 st.divider()
 
@@ -205,26 +207,44 @@ category_hours = (
 # ---------- GRAFIKI ----------
 fig_mttr = None
 if not mttr_by_month.empty:
-    fig_mttr = px.line(
-        mttr_by_month,
-        x="month",
-        y="duration_hours",
-        markers=True,
-        labels={"month": "Mēnesis", "duration_hours": "MTTR, stundas"}
+    fig_mttr = go.Figure()
+    fig_mttr.add_trace(go.Scatter(
+        x=mttr_by_month["month"],
+        y=mttr_by_month["duration_hours"],
+        mode="lines+markers",
+        line=dict(width=4, color="#00BFFF"),
+        marker=dict(size=8),
+        fill="tozeroy",
+        fillcolor="rgba(0,191,255,0.20)",
+        name="MTTR"
+    ))
+    fig_mttr.update_layout(
+        template=PLOT_TEMPLATE,
+        title="",
+        yaxis_title="MTTR (stundas)",
+        xaxis_title="Mēnesis"
     )
-    fig_mttr.update_traces(line=dict(width=4), marker=dict(size=9))
     apply_common_layout(fig_mttr, height=400)
 
 fig_mtbf = None
 if not mtbf_by_month.empty:
-    fig_mtbf = px.line(
-        mtbf_by_month,
-        x="month",
-        y="mtbf_hours",
-        markers=True,
-        labels={"month": "Mēnesis", "mtbf_hours": "MTBF, stundas"}
+    fig_mtbf = go.Figure()
+    fig_mtbf.add_trace(go.Scatter(
+        x=mtbf_by_month["month"],
+        y=mtbf_by_month["mtbf_hours"],
+        mode="lines+markers",
+        line=dict(width=4, color="#FFA500"),
+        marker=dict(size=8),
+        fill="tozeroy",
+        fillcolor="rgba(255,165,0,0.20)",
+        name="MTBF"
+    ))
+    fig_mtbf.update_layout(
+        template=PLOT_TEMPLATE,
+        title="",
+        yaxis_title="MTBF (stundas)",
+        xaxis_title="Mēnesis"
     )
-    fig_mtbf.update_traces(line=dict(width=4), marker=dict(size=9))
     apply_common_layout(fig_mtbf, height=400)
 
 fig_lines = None
@@ -235,9 +255,19 @@ if not downtime_by_line.empty:
         y="line",
         orientation="h",
         text="duration_hours",
+        color="duration_hours",
+        color_continuous_scale="Blues",
         labels={"duration_hours": "Stundas", "line": "Līnija"}
     )
-    fig_lines.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    fig_lines.update_traces(
+        texttemplate="%{text:.1f}",
+        textposition="outside",
+        marker_line_width=1.5
+    )
+    fig_lines.update_layout(
+        template=PLOT_TEMPLATE,
+        coloraxis_showscale=False
+    )
     apply_common_layout(fig_lines, height=650)
 
 fig_devices = None
@@ -248,23 +278,42 @@ if not downtime_by_device.empty:
         y="device_name",
         orientation="h",
         text="duration_hours",
+        color="duration_hours",
+        color_continuous_scale="Tealgrn",
         labels={"duration_hours": "Stundas", "device_name": "Iekārta"}
     )
-    fig_devices.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    fig_devices.update_traces(
+        texttemplate="%{text:.1f}",
+        textposition="outside",
+        marker_line_width=1.5
+    )
+    fig_devices.update_layout(
+        template=PLOT_TEMPLATE,
+        coloraxis_showscale=False
+    )
     apply_common_layout(fig_devices, height=520)
 
 fig_cat = None
 if not category_hours.empty:
-    fig_cat = px.pie(
-        category_hours,
-        names="cat_name",
-        values="duration_hours",
-        hole=0.45
+    fig_cat = go.Figure(data=[go.Pie(
+        labels=category_hours["cat_name"],
+        values=category_hours["duration_hours"],
+        hole=0.60,
+        textinfo="percent+label",
+        marker=dict(
+            colors=px.colors.sequential.Blues,
+            line=dict(color="#000000", width=1)
+        )
+    )])
+    fig_cat.update_layout(
+        template=PLOT_TEMPLATE,
+        showlegend=True
     )
     apply_common_layout(fig_cat, height=500)
 
 # ---------- IZKĀRTOJUMS ----------
 r1c1, r1c2 = st.columns(2)
+
 with r1c1:
     st.subheader("MTTR pa mēnešiem")
     if fig_mttr is not None:
@@ -282,6 +331,7 @@ with r1c2:
 st.divider()
 
 r2c1, r2c2 = st.columns(2)
+
 with r2c1:
     st.subheader("Dīkstāve pa līnijām")
     if fig_lines is not None:
@@ -304,7 +354,9 @@ if fig_devices is not None:
 else:
     st.info("Nav datu izvēlētajiem filtriem")
 
+# ---------- TABULA ----------
 st.subheader("Dīkstāves dati")
+
 show_columns = [
     "id",
     "start_date",
@@ -317,5 +369,6 @@ show_columns = [
     "duration_hours",
     "is_ended"
 ]
+
 existing_columns = [col for col in show_columns if col in df_filtered.columns]
 st.dataframe(df_filtered[existing_columns], use_container_width=True)
