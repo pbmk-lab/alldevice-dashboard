@@ -1095,7 +1095,34 @@ elif page == "🧾 Task reports":
         else:
             st.info("Nav datu darbu analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
+    # ---------- STUNDAS PA LĪNIJĀM ----------
+    hours_by_line = (
+        tr_df.groupby("device_location", as_index=False)["total_hours"]
+        .sum()
+        .sort_values("total_hours", ascending=False)
+        .head(10)
+        .sort_values("total_hours", ascending=True)
+    )
 
+    fig_line_hours = None
+    if not hours_by_line.empty:
+        fig_line_hours = px.bar(
+            hours_by_line,
+            x="total_hours",
+            y="device_location",
+            orientation="h",
+            text="total_hours",
+            color="total_hours",
+            color_continuous_scale="Oranges",
+            labels={
+                "total_hours": "Stundas",
+                "device_location": "Līnija"
+            }
+        )
+        fig_line_hours.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig_line_hours.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_line_hours, height=520)
+    
     # ---------- TABULA ----------
     st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
 
