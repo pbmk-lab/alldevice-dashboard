@@ -164,10 +164,17 @@ payload = {
 }
 
 # ---------- API ----------
-try:
+
+@st.cache_data(ttl=300)
+def load_data():
     response = requests.post(BASE_URL, json=payload, timeout=10)
     response.raise_for_status()
-    data = response.json()
+    return response.json()
+
+try:
+    with st.spinner("Ielādē datus..."):
+        data = load_data()
+    response.raise_for_status()
 except requests.exceptions.Timeout:
     st.error("Savienojuma noildze ar Alldevice API.")
     st.stop()
