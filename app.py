@@ -195,7 +195,6 @@ BASE_URL = st.secrets.get("BASE_URL", "http://example.com")
 USERNAME = st.secrets.get("USERNAME", "user")
 PASSWORD = st.secrets.get("PASSWORD", "pass")
 API_KEY = st.secrets.get("API_KEY", "key")
-TASKREPORTS_URL = st.secrets("TASKREPORTS_URL")
 
 payload = {
     "auth": {
@@ -205,16 +204,6 @@ payload = {
     },
     "date_start": "2023-01-01",
     "date_end": "2026-12-31"
-}
-taskreports_payload = {
-    "auth": {
-        "username": USERNAME,
-        "password": PASSWORD,
-        "key": API_KEY
-    },
-    "date_start": "2023-01-01",
-    "date_end": "2026-12-31",
-    "date_type": "completed_date"
 }
 
 # ---------- API ----------
