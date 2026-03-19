@@ -245,7 +245,7 @@ df["line"] = df["device_location"].apply(extract_line)
 # ---------- FILTRI ----------
 st.sidebar.markdown("## Filtri")
 
-lines = list(LINE_MAPPING.keys())
+lines = sorted(df["line"].dropna().unique().tolist())
 selected_lines = st.sidebar.multiselect(
     "Izvēlies līnijas",
     options=lines,
@@ -270,6 +270,18 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
 else:
     start_filter = min_date
     end_filter = max_date
+
+# ---------- NAVIGĀCIJA ----------
+st.sidebar.markdown("## Navigācija")
+
+page = st.sidebar.radio(
+    "Izvēlies sadaļu",
+    [
+        "📊 Dīkstāves analīze",
+        "📈 Paplašināta analīze",
+        "🛠 API debug"
+    ]
+)
 
 df_filtered = df[
     (df["line"].isin(selected_lines)) &
@@ -315,38 +327,6 @@ else:
 total_downtime_hours = df_filtered["duration_hours"].sum()
 total_events = len(df_filtered)
 
-k1, k2, k3, k4 = st.columns(4)
-
-with k1:
-    st.markdown(
-        f'<div class="kpi-card"><div class="kpi-label">MTTR (stundas)</div><div class="kpi-value">{mttr:.2f}</div></div>',
-        unsafe_allow_html=True
-    )
-with k2:
-    st.markdown(
-        f'<div class="kpi-card"><div class="kpi-label">MTBF (stundas)</div><div class="kpi-value">{mtbf:.2f}</div></div>',
-        unsafe_allow_html=True
-    )
-with k3:
-    st.markdown(
-        f'<div class="kpi-card"><div class="kpi-label">Kopējā dīkstāve</div><div class="kpi-value">{total_downtime_hours:.0f}</div></div>',
-        unsafe_allow_html=True
-    )
-with k4:
-    st.markdown(
-        f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>',
-        unsafe_allow_html=True
-    )
-
-if mttr > 10:
-    st.error("⚠️ Augsts MTTR! Nepieciešama uzmanība — remonta laiks ir pārāk liels.")
-elif mttr > 5:
-    st.warning("⚠️ MTTR virs normas.")
-else:
-    st.success("✅ MTTR ir normas robežās.")
-
-st.markdown("<hr>", unsafe_allow_html=True)
-
 # ---------- AGREGĀCIJAS ----------
 mttr_by_month = (
     df_closed.groupby("month", as_index=False)["duration_hours"]
@@ -379,6 +359,19 @@ type_hours = (
     df_filtered.groupby("type", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=False)
+)
+
+events_by_month = (
+    df_filtered.groupby("month", as_index=False)
+    .size()
+    .rename(columns={"size": "events"})
+    .sort_values("month")
+)
+
+avg_downtime_by_line = (
+    df_filtered.groupby("line", as_index=False)["duration_hours"]
+    .mean()
+    .sort_values("duration_hours", ascending=True)
 )
 
 if not downtime_by_line.empty:
@@ -486,49 +479,30 @@ if not type_hours.empty:
     fig_cat.update_traces(textinfo="percent+label", marker=dict(line=dict(color="#000000", width=1)))
     apply_common_layout(fig_cat, height=430)
 
-# ---------- IZKĀRTOJUMS ----------
-r1c1, r1c2 = st.columns(2)
+fig_events = None
+if not events_by_month.empty:
+    fig_events = px.bar(
+        events_by_month,
+        x="month",
+        y="events",
+        text="events",
+        labels={"month": "Mēnesis", "events": "Gadījumu skaits"}
+    )
+    fig_events.update_traces(textposition="outside")
+    apply_common_layout(fig_events, height=380)
 
-with r1c1:
-    st.markdown('<div class="chart-card"><div class="chart-title">MTTR pa mēnešiem</div>', unsafe_allow_html=True)
-    if fig_mttr is not None:
-        st.plotly_chart(fig_mttr, use_container_width=True)
-    else:
-        st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with r1c2:
-    st.markdown('<div class="chart-card"><div class="chart-title">MTBF pa mēnešiem</div>', unsafe_allow_html=True)
-    if fig_mtbf is not None:
-        st.plotly_chart(fig_mtbf, use_container_width=True)
-    else:
-        st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-r2c1, r2c2 = st.columns(2)
-
-with r2c1:
-    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāve pa līnijām</div>', unsafe_allow_html=True)
-    if fig_lines is not None:
-        st.plotly_chart(fig_lines, use_container_width=True)
-    else:
-        st.info("Nav datu izvēlētajiem filtriem")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with r2c2:
-    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums: plānots / avārija</div>', unsafe_allow_html=True)
-    if fig_cat is not None:
-        st.plotly_chart(fig_cat, use_container_width=True)
-    else:
-        st.info("Nav datu kategoriju grafikam")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown('<div class="chart-card"><div class="chart-title">Top 10 iekārtas pēc dīkstāves</div>', unsafe_allow_html=True)
-if fig_devices is not None:
-    st.plotly_chart(fig_devices, use_container_width=True)
-else:
-    st.info("Nav datu izvēlētajiem filtriem")
-st.markdown("</div>", unsafe_allow_html=True)
+fig_avg_line = None
+if not avg_downtime_by_line.empty:
+    fig_avg_line = px.bar(
+        avg_downtime_by_line,
+        x="duration_hours",
+        y="line",
+        orientation="h",
+        text="duration_hours",
+        labels={"duration_hours": "Vidējās stundas", "line": "Līnija"}
+    )
+    fig_avg_line.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    apply_common_layout(fig_avg_line, height=430)
 
 # ---------- AUTOMĀTISKIE SECINĀJUMI ----------
 top_line = "-"
@@ -540,39 +514,190 @@ if not downtime_by_line.empty:
 if not downtime_by_device.empty:
     top_device = downtime_by_device.sort_values("duration_hours", ascending=False).iloc[0]["device_name"]
 
-st.markdown('<div class="insight-card"><div class="insight-title">Automātiskie secinājumi</div>', unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div class="insight-list">
-    🔴 Kritiskākā līnija: <b>{top_line}</b><br>
-    ⚙️ Problemātiskākā iekārta: <b>{top_device}</b><br>
-    ⏱️ Vidējais MTTR: <b>{mttr:.2f} h</b><br>
-    🔁 Vidējais MTBF: <b>{mtbf:.2f} h</b><br>
-    📉 Kopējā dīkstāve filtrētajā periodā: <b>{total_downtime_hours:.1f} h</b>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-st.markdown("</div>", unsafe_allow_html=True)
+# ---------- LAPAS ----------
+if page == "📊 Dīkstāves analīze":
+    k1, k2, k3, k4 = st.columns(4)
 
-# ---------- TABULA ----------
-st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati</div>', unsafe_allow_html=True)
+    with k1:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">MTTR (stundas)</div><div class="kpi-value">{mttr:.2f}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k2:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">MTBF (stundas)</div><div class="kpi-value">{mtbf:.2f}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k3:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">Kopējā dīkstāve</div><div class="kpi-value">{total_downtime_hours:.0f}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k4:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>',
+            unsafe_allow_html=True
+        )
 
-show_columns = [
-    "id",
-    "start_date",
-    "end_date",
-    "device_name",
-    "line",
-    "device_location",
-    "cat_name",
-    "type",
-    "comments",
-    "duration_hours",
-    "is_ended"
-]
+    if mttr > 10:
+        st.error("⚠️ Augsts MTTR! Nepieciešama uzmanība — remonta laiks ir pārāk liels.")
+    elif mttr > 5:
+        st.warning("⚠️ MTTR virs normas.")
+    else:
+        st.success("✅ MTTR ir normas robežās.")
 
-existing_columns = [col for col in show_columns if col in df_filtered.columns]
-st.dataframe(df_filtered[existing_columns], use_container_width=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
+    r1c1, r1c2 = st.columns(2)
+
+    with r1c1:
+        st.markdown('<div class="chart-card"><div class="chart-title">MTTR pa mēnešiem</div>', unsafe_allow_html=True)
+        if fig_mttr is not None:
+            st.plotly_chart(fig_mttr, use_container_width=True)
+        else:
+            st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with r1c2:
+        st.markdown('<div class="chart-card"><div class="chart-title">MTBF pa mēnešiem</div>', unsafe_allow_html=True)
+        if fig_mtbf is not None:
+            st.plotly_chart(fig_mtbf, use_container_width=True)
+        else:
+            st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    r2c1, r2c2 = st.columns(2)
+
+    with r2c1:
+        st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāve pa līnijām</div>', unsafe_allow_html=True)
+        if fig_lines is not None:
+            st.plotly_chart(fig_lines, use_container_width=True)
+        else:
+            st.info("Nav datu izvēlētajiem filtriem")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with r2c2:
+        st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums: plānots / avārija</div>', unsafe_allow_html=True)
+        if fig_cat is not None:
+            st.plotly_chart(fig_cat, use_container_width=True)
+        else:
+            st.info("Nav datu kategoriju grafikam")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Top 10 iekārtas pēc dīkstāves</div>', unsafe_allow_html=True)
+    if fig_devices is not None:
+        st.plotly_chart(fig_devices, use_container_width=True)
+    else:
+        st.info("Nav datu izvēlētajiem filtriem")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="insight-card"><div class="insight-title">Automātiskie secinājumi</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="insight-list">
+        🔴 Kritiskākā līnija: <b>{top_line}</b><br>
+        ⚙️ Problemātiskākā iekārta: <b>{top_device}</b><br>
+        ⏱️ Vidējais MTTR: <b>{mttr:.2f} h</b><br>
+        🔁 Vidējais MTBF: <b>{mtbf:.2f} h</b><br>
+        📉 Kopējā dīkstāve filtrētajā periodā: <b>{total_downtime_hours:.1f} h</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati</div>', unsafe_allow_html=True)
+
+    show_columns = [
+        "id",
+        "start_date",
+        "end_date",
+        "device_name",
+        "line",
+        "device_location",
+        "cat_name",
+        "type",
+        "comments",
+        "duration_hours",
+        "is_ended"
+    ]
+
+    existing_columns = [col for col in show_columns if col in df_filtered.columns]
+    st.dataframe(df_filtered[existing_columns], use_container_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+elif page == "📈 Paplašināta analīze":
+    st.markdown('<div class="chart-card"><div class="chart-title">Paplašināta analīze</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        Šajā sadaļā varam droši pievienot jaunus grafikus, neizveidojot atsevišķu pages struktūru.
+        """
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves gadījumu skaits pa mēnešiem</div>', unsafe_allow_html=True)
+        if fig_events is not None:
+            st.plotly_chart(fig_events, use_container_width=True)
+        else:
+            st.info("Nav datu gadījumu skaita analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown('<div class="chart-card"><div class="chart-title">Vidējā dīkstāve pa līnijām</div>', unsafe_allow_html=True)
+        if fig_avg_line is not None:
+            st.plotly_chart(fig_avg_line, use_container_width=True)
+        else:
+            st.info("Nav datu vidējās dīkstāves analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    line_summary = (
+        df_filtered.groupby("line", as_index=False)
+        .agg(
+            total_hours=("duration_hours", "sum"),
+            avg_hours=("duration_hours", "mean"),
+            events=("id", "count") if "id" in df_filtered.columns else ("duration_hours", "count")
+        )
+        .sort_values("total_hours", ascending=False)
+    )
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Kopsavilkums pa līnijām</div>', unsafe_allow_html=True)
+    st.dataframe(line_summary, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+elif page == "🛠 API debug":
+    st.markdown('<div class="chart-card"><div class="chart-title">API debug</div>', unsafe_allow_html=True)
+
+    debug_info = {
+        "BASE_URL": BASE_URL,
+        "ROWS_FROM_API": len(rows),
+        "FILTERED_ROWS": len(df_filtered),
+        "DATE_START_FILTER": str(start_filter),
+        "DATE_END_FILTER": str(end_filter),
+        "SELECTED_LINES_COUNT": len(selected_lines),
+        "SUCCESS_FLAG": data.get("success"),
+    }
+
+    st.json(debug_info)
+
+    st.markdown("### Payload preview")
+    st.json({
+        "auth": {
+            "username": USERNAME,
+            "password": "***",
+            "key": "***"
+        },
+        "date_start": payload["date_start"],
+        "date_end": payload["date_end"]
+    })
+
+    st.markdown("### Pieejamās kolonnas")
+    st.write(df.columns.tolist())
+
+    st.markdown("### Pirmās 5 rindas")
+    st.dataframe(df.head(5), use_container_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
