@@ -598,6 +598,10 @@ elif page == "📈 Paplašināta analīze":
     st.markdown('<div class="chart-card"><div class="chart-title">Top dīkstāves cēloņi</div>', unsafe_allow_html=True)
     if fig_cat_top: st.plotly_chart(fig_cat_top, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
+elif page == "🧾 Task reports":
+    st.markdown('<div class="chart-card"><div class="chart-title">Task reports</div>', unsafe_allow_html=True)
+    st.info("Šeit pievienosim taskreports API analīzi nākamajā solī.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "🛠 API debug":
     st.markdown('<div class="chart-card"><div class="chart-title">API debug info</div>', unsafe_allow_html=True)
