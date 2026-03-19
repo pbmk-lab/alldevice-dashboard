@@ -310,6 +310,7 @@ page = st.sidebar.radio(
     [
         "📊 Dīkstāves analīze",
         "📈 Paplašināta analīze",
+        "🧾 Task reports",
         "🛠 API debug"
     ]
 )
