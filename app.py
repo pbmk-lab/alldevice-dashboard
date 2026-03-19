@@ -45,7 +45,9 @@ df["month"] = df["start_date"].dt.to_period("M").astype(str)
 df["cat_name"] = df["cat_name"].fillna("").replace("", "Nav norādīts")
 df["device_name"] = df["device_name"].fillna("Nav norādīts")
 df["device_location"] = df["device_location"].fillna("Nav norādīts")
+df["comments"] = df["comments"].fillna("")
 
+# --- FIKSĒTS LĪNIJU SARAKSTS ---
 LINE_MAPPING = {
     "01. 1 LĪNIJA": ["1 LĪNIJA"],
     "02. 2 LĪNIJA": ["2 LĪNIJA"],
@@ -77,6 +79,7 @@ def extract_line(location):
 
 df["line"] = df["device_location"].apply(extract_line)
 
+# --- FILTRI ---
 st.sidebar.header("Filtri")
 
 lines = list(LINE_MAPPING.keys())
@@ -107,6 +110,10 @@ df_filtered = df[
     (df["start_date"] <= end_filter)
 ].copy()
 
+# Обновляем month после фильтрации
+df_filtered["month"] = df_filtered["start_date"].dt.to_period("M").astype(str)
+
+# --- MTTR ---
 df_closed = df_filtered[
     (df_filtered["is_ended"] == True) &
     (df_filtered["duration_hours"] > 0) &
@@ -118,58 +125,51 @@ if len(df_closed) > 0:
 else:
     mttr = 0
 
+# --- MTBF ---
+df_failures = df_filtered.sort_values("start_date").copy()
+
+if len(df_failures) > 1:
+    df_failures["prev_start"] = df_failures["start_date"].shift(1)
+    df_failures["mtbf_hours"] = (
+        (df_failures["start_date"] - df_failures["prev_start"])
+        .dt.total_seconds() / 3600
+    )
+    mtbf = df_failures["mtbf_hours"].dropna().mean()
+else:
+    df_failures["mtbf_hours"] = pd.NA
+    mtbf = 0
+
+# --- KPI ---
 total_downtime_hours = df_filtered["duration_hours"].sum()
 total_events = len(df_filtered)
-closed_events = len(df_closed)
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("MTTR (stundas)", round(mttr, 2))
-c2.metric("Kopējā dīkstāve (stundas)", round(total_downtime_hours, 2))
-c3.metric("Dīkstāves gadījumu skaits", total_events)
+c2.metric("MTBF (stundas)", round(mtbf, 2))
+c3.metric("Kopējā dīkstāve (stundas)", round(total_downtime_hours, 2))
+c4.metric("Dīkstāves gadījumu skaits", total_events)
 
+st.divider()
+
+# --- DATI GRAFIKIEM ---
 mttr_by_month = (
     df_closed.groupby("month", as_index=False)["duration_hours"]
     .mean()
     .sort_values("month")
 )
 
-st.subheader("MTTR pa mēnešiem")
-if not mttr_by_month.empty:
-    fig_mttr = px.line(
-        mttr_by_month,
-        x="month",
-        y="duration_hours",
-        markers=True,
-        labels={"month": "Mēnesis", "duration_hours": "MTTR, stundas"},
-        title=""
-    )
-    fig_mttr.update_layout(height=420)
-    st.plotly_chart(fig_mttr, use_container_width=True)
-else:
-    st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
+mtbf_by_month = (
+    df_failures.dropna(subset=["mtbf_hours"])
+    .groupby("month", as_index=False)["mtbf_hours"]
+    .mean()
+    .sort_values("month")
+)
 
 downtime_by_line = (
     df_filtered.groupby("line", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=True)
 )
-
-st.subheader("Dīkstāve pa līnijām")
-if not downtime_by_line.empty:
-    fig_lines = px.bar(
-        downtime_by_line,
-        x="duration_hours",
-        y="line",
-        orientation="h",
-        text="duration_hours",
-        labels={"duration_hours": "Stundas", "line": "Līnija"},
-        title=""
-    )
-    fig_lines.update_traces(texttemplate="%{text:.2f}", textposition="outside")
-    fig_lines.update_layout(height=650)
-    st.plotly_chart(fig_lines, use_container_width=True)
-else:
-    st.info("Nav datu izvēlētajiem filtriem")
 
 downtime_by_device = (
     df_filtered.groupby("device_name", as_index=False)["duration_hours"]
@@ -179,7 +179,49 @@ downtime_by_device = (
     .sort_values("duration_hours", ascending=True)
 )
 
-st.subheader("Top 10 iekārtas pēc dīkstāves")
+category_hours = (
+    df_filtered.groupby("cat_name", as_index=False)["duration_hours"]
+    .sum()
+    .sort_values("duration_hours", ascending=False)
+)
+
+# --- FIGŪRAS ---
+fig_mttr = None
+if not mttr_by_month.empty:
+    fig_mttr = px.line(
+        mttr_by_month,
+        x="month",
+        y="duration_hours",
+        markers=True,
+        labels={"month": "Mēnesis", "duration_hours": "MTTR, stundas"}
+    )
+    fig_mttr.update_layout(height=400)
+
+fig_mtbf = None
+if not mtbf_by_month.empty:
+    fig_mtbf = px.line(
+        mtbf_by_month,
+        x="month",
+        y="mtbf_hours",
+        markers=True,
+        labels={"month": "Mēnesis", "mtbf_hours": "MTBF, stundas"}
+    )
+    fig_mtbf.update_layout(height=400)
+
+fig_lines = None
+if not downtime_by_line.empty:
+    fig_lines = px.bar(
+        downtime_by_line,
+        x="duration_hours",
+        y="line",
+        orientation="h",
+        text="duration_hours",
+        labels={"duration_hours": "Stundas", "line": "Līnija"}
+    )
+    fig_lines.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    fig_lines.update_layout(height=650)
+
+fig_devices = None
 if not downtime_by_device.empty:
     fig_devices = px.bar(
         downtime_by_device,
@@ -187,22 +229,12 @@ if not downtime_by_device.empty:
         y="device_name",
         orientation="h",
         text="duration_hours",
-        labels={"duration_hours": "Stundas", "device_name": "Iekārta"},
-        title=""
+        labels={"duration_hours": "Stundas", "device_name": "Iekārta"}
     )
     fig_devices.update_traces(texttemplate="%{text:.2f}", textposition="outside")
     fig_devices.update_layout(height=520)
-    st.plotly_chart(fig_devices, use_container_width=True)
-else:
-    st.info("Nav datu izvēlētajiem filtriem")
 
-category_hours = (
-    df_filtered.groupby("cat_name", as_index=False)["duration_hours"]
-    .sum()
-    .sort_values("duration_hours", ascending=False)
-)
-
-st.subheader("Dīkstāves sadalījums pa kategorijām")
+fig_cat = None
 if not category_hours.empty:
     fig_cat = px.pie(
         category_hours,
@@ -211,10 +243,53 @@ if not category_hours.empty:
         hole=0.45
     )
     fig_cat.update_layout(height=500)
-    st.plotly_chart(fig_cat, use_container_width=True)
-else:
-    st.info("Nav datu kategoriju grafikam")
 
+# --- 1. RINDA ---
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("MTTR pa mēnešiem")
+    if fig_mttr is not None:
+        st.plotly_chart(fig_mttr, use_container_width=True)
+    else:
+        st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
+
+with col2:
+    st.subheader("MTBF pa mēnešiem")
+    if fig_mtbf is not None:
+        st.plotly_chart(fig_mtbf, use_container_width=True)
+    else:
+        st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
+
+st.divider()
+
+# --- 2. RINDA ---
+col3, col4 = st.columns(2)
+
+with col3:
+    st.subheader("Dīkstāve pa līnijām")
+    if fig_lines is not None:
+        st.plotly_chart(fig_lines, use_container_width=True)
+    else:
+        st.info("Nav datu izvēlētajiem filtriem")
+
+with col4:
+    st.subheader("Dīkstāves sadalījums pa kategorijām")
+    if fig_cat is not None:
+        st.plotly_chart(fig_cat, use_container_width=True)
+    else:
+        st.info("Nav datu kategoriju grafikam")
+
+st.divider()
+
+# --- 3. RINDA ---
+st.subheader("Top 10 iekārtas pēc dīkstāves")
+if fig_devices is not None:
+    st.plotly_chart(fig_devices, use_container_width=True)
+else:
+    st.info("Nav datu izvēlētajiem filtriem")
+
+# --- TABULA ---
 st.subheader("Dīkstāves dati")
 show_columns = [
     "id",
