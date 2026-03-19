@@ -602,4 +602,3 @@ elif page == "🛠 API debug":
     st.markdown('<div class="chart-card"><div class="chart-title">API debug info</div>', unsafe_allow_html=True)
     st.json({"ROWS": len(rows), "MAX_HOURS": ANALYSIS_MAX_HOURS})
     st.markdown("</div>", unsafe_allow_html=True)
-```
