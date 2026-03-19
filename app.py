@@ -11,7 +11,8 @@ USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 API_KEY = st.secrets["API_KEY"]
 
-# --- PAYLOAD ---
+st.write("🔗 URL:", BASE_URL)
+
 payload = {
     "auth": {
         "username": USERNAME,
@@ -22,12 +23,17 @@ payload = {
     "date_end": "2026-12-31"
 }
 
-# --- API CALL ---
+# --- API ---
 try:
     response = requests.post(BASE_URL, json=payload, timeout=10)
-    data = response.json()
-    st.success("API pieslēgums OK")
-    st.write(data)
+    st.success(f"Status: {response.status_code}")
+
+    try:
+        data = response.json()
+        st.write(data)
+    except:
+        st.warning("Ответ не JSON")
 
 except Exception as e:
-    st.error("Nav savienojuma ar API")
+    st.error("❌ Nav savienojuma ar API")
+    st.write(str(e))
