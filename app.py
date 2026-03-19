@@ -392,6 +392,43 @@ else:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+# ---------- DATU KVALITĀTE PĒC LĪNIJĀM ----------
+quality_by_line = (
+    df_analysis.assign(missing=df_analysis["cat_name"] == "Nav norādīts")
+    .groupby("device_location")
+    .agg(
+        total=("cat_name", "count"),
+        missing=("missing", "sum")
+    )
+    .reset_index()
+)
+
+quality_by_line["missing_pct"] = (quality_by_line["missing"] / quality_by_line["total"]) * 100
+quality_by_line = quality_by_line.sort_values("missing_pct", ascending=False)
+
+st.markdown('<div class="chart-card"><div class="chart-title">Datu kvalitāte pa līnijām</div>', unsafe_allow_html=True)
+
+fig_quality = px.bar(
+    quality_by_line.head(10),
+    x="missing_pct",
+    y="device_location",
+    orientation="h",
+    text="missing_pct",
+    color="missing_pct",
+    color_continuous_scale="Reds",
+    labels={
+        "missing_pct": "% bez cēloņa",
+        "device_location": "Līnija"
+    }
+)
+
+fig_quality.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+fig_quality.update_layout(coloraxis_showscale=False)
+
+st.plotly_chart(fig_quality, use_container_width=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
 # ---------- KPI ----------
 df_closed = df_analysis[
     (df_analysis["is_ended"] == True) &
