@@ -42,26 +42,36 @@ df["duration_seconds"] = pd.to_numeric(df["duration_seconds"], errors="coerce").
 df["duration_hours"] = df["duration_seconds"] / 3600
 df["month"] = df["start_date"].dt.to_period("M").astype(str)
 
-location_parts = df["device_location"].fillna("").str.split(" / ")
+# --- FIKSĒTS LĪNIJU SARAKSTS ---
+LINE_MAPPING = {
+    "01. 1 LĪNIJA": ["1 LĪNIJA"],
+    "02. 2 LĪNIJA": ["2 LĪNIJA"],
+    "03. 3 LĪNIJA RIPLAST": ["RIPLAST"],
+    "04. 4 LĪNIJA": ["4 LĪNIJA"],
+    "05. SMALKUMU LĪNIJA SM1": ["SM1"],
+    "06. SMALKUMU LĪNIJA SM2 (VIOLIA)": ["SM2", "VIOLIA"],
+    "07. SMALKUMU LĪNIJA SM 3": ["SM 3", "SM3"],
+    "08. SMALKUMU LĪNIJA (KORKU)": ["KORKU"],
+    "09. TOMRA KORKU LĪNIJA": ["TOMRA"],
+    "10. WIPA": ["WIPA"],
+    "11. ĶĪPU PRESE": ["PRESE"],
+    "12. KOMPRESORI": ["KOMPRESOR"]
+}
 
-def extract_line(parts):
-    for part in parts:
-        part = part.strip()
-        if (
-            "LĪNIJA" in part
-            or "STARLINGER" in part
-            or "VABEC" in part
-            or "WET" in part
-            or "ST R3/R4" in part
-        ):
-            return part
+def extract_line(location):
+    location = str(location).upper()
+    for line_name, keywords in LINE_MAPPING.items():
+        for keyword in keywords:
+            if keyword.upper() in location:
+                return line_name
     return "Cits"
 
-df["line"] = location_parts.apply(extract_line)
+df["line"] = df["device_location"].apply(extract_line)
 
+# --- FILTRI ---
 st.sidebar.header("Filtri")
 
-lines = sorted(df["line"].dropna().unique().tolist())
+lines = list(LINE_MAPPING.keys())
 selected_lines = st.sidebar.multiselect(
     "Izvēlies līnijas",
     options=lines,
@@ -89,7 +99,7 @@ df_filtered = df[
     (df["start_date"] <= end_filter)
 ].copy()
 
-# MTTR: tikai pabeigtas dīkstāves ar saprātīgu ilgumu
+# --- MTTR ---
 df_closed = df_filtered[
     (df_filtered["is_ended"] == True) &
     (df_filtered["duration_hours"] > 0) &
@@ -103,6 +113,7 @@ else:
 
 st.metric("MTTR (vidējais remonta laiks, stundās)", round(mttr, 2))
 
+# --- MTTR PA MĒNEŠIEM ---
 mttr_by_month = (
     df_closed.groupby("month")["duration_hours"]
     .mean()
@@ -116,6 +127,7 @@ if not mttr_by_month.empty:
 else:
     st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
 
+# --- DĪKSTĀVE PA LĪNIJĀM ---
 downtime_by_line = (
     df_filtered.groupby("line")["duration_hours"]
     .sum()
@@ -129,5 +141,21 @@ if not downtime_by_line.empty:
 else:
     st.info("Nav datu izvēlētajiem filtriem")
 
+# --- TOP IEKĀRTAS PĒC DĪKSTĀVES ---
+downtime_by_device = (
+    df_filtered.groupby("device_name")["duration_hours"]
+    .sum()
+    .reset_index()
+    .sort_values("duration_hours", ascending=False)
+    .head(10)
+)
+
+st.subheader("Top 10 iekārtas pēc dīkstāves (stundas)")
+if not downtime_by_device.empty:
+    st.bar_chart(downtime_by_device.set_index("device_name"))
+else:
+    st.info("Nav datu izvēlētajiem filtriem")
+
+# --- TABULA ---
 st.subheader("Dīkstāves dati")
 st.dataframe(df_filtered, use_container_width=True)
