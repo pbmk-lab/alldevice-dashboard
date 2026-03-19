@@ -245,7 +245,7 @@ if not mtbf_by_month.empty:
         x=mtbf_by_month["month"],
         y=mtbf_by_month["mtbf_hours"],
         mode="lines+markers",
-        line=dict(width=4, color="#FFA500"),
+        line=dict(width=4, color="#FFB300"),
         marker=dict(size=8),
         fill="tozeroy",
         fillcolor="rgba(255,165,0,0.20)",
