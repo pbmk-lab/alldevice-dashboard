@@ -921,7 +921,13 @@ elif page == "📈 Paplašināta analīze":
         else:
             st.info("Nav datu vidējās dīkstāves analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
-
+    st.markdown('<div class="chart-card"><div class="chart-title">Darba stundas pa līnijām</div>', unsafe_allow_html=True)
+    if fig_line_hours is not None:
+        st.plotly_chart(fig_line_hours, use_container_width=True)
+    else:
+        st.info("Nav datu līniju analīzei")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     st.markdown('<div class="chart-card"><div class="chart-title">Top dīkstāves cēloņi</div>', unsafe_allow_html=True)
     if fig_cat_top is not None:
         st.plotly_chart(fig_cat_top, use_container_width=True)
