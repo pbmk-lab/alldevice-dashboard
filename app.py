@@ -268,7 +268,7 @@ if not downtime_by_line.empty:
         orientation="h",
         text="duration_hours",
         color="duration_hours",
-        color_continuous_scale="Blues",
+        color_continuous_scale="Viridis",
         labels={"duration_hours": "Stundas", "line": "Līnija"}
     )
     fig_lines.update_traces(
