@@ -904,34 +904,24 @@ elif page == "📈 Paplašināta analīze":
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-        c1, c2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
     with c1:
-        st.markdown('<div class="chart-card"><div class="chart-title">Top tehniķi pēc darba stundām</div>', unsafe_allow_html=True)
-        if fig_tech is not None:
-            st.plotly_chart(fig_tech, use_container_width=True)
+        st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves gadījumu skaits pa mēnešiem</div>', unsafe_allow_html=True)
+        if fig_events is not None:
+            st.plotly_chart(fig_events, use_container_width=True)
         else:
-            st.info("Nav datu tehniķu analīzei")
+            st.info("Nav datu gadījumu skaita analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with c2:
-        st.markdown('<div class="chart-card"><div class="chart-title">Top darbi pēc darba stundām</div>', unsafe_allow_html=True)
-        if fig_service is not None:
-            st.plotly_chart(fig_service, use_container_width=True)
+        st.markdown('<div class="chart-card"><div class="chart-title">Vidējā dīkstāve pa līnijām</div>', unsafe_allow_html=True)
+        if fig_avg_line is not None:
+            st.plotly_chart(fig_avg_line, use_container_width=True)
         else:
-            st.info("Nav datu darbu analīzei")
+            st.info("Nav datu vidējās dīkstāves analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="chart-card"><div class="chart-title">Darba stundas pa līnijām</div>', unsafe_allow_html=True)
-    if fig_line_hours is not None:
-        st.plotly_chart(fig_line_hours, use_container_width=True)
-    else:
-        st.info("Nav datu līniju analīzei")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ---------- TABULA ----------
-    st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="chart-card"><div class="chart-title">Top dīkstāves cēloņi</div>', unsafe_allow_html=True)
     if fig_cat_top is not None:
         st.plotly_chart(fig_cat_top, use_container_width=True)
