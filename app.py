@@ -182,12 +182,10 @@ payload = {
 }
 
 try:
-    response = requests.post(BASE_URL, json=payload, timeout=60)
-    response.raise_for_status()
+    response = requests.post(...)
     data = response.json()
-except Exception as e:
-    st.error(f"Neizdevās iegūt datus no API: {e}")
-    st.stop()
+except:
+    st.error("Нет доступа к API")
 
 if not data.get("success"):
     st.error(f"API kļūda: {data}")
