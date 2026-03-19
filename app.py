@@ -238,6 +238,11 @@ df_filtered = df[
 
 df_filtered["month"] = df_filtered["start_date"].dt.to_period("M").astype(str)
 
+# ---------- TIPS: PLĀNOTS / AVĀRIJA ----------
+df_filtered["type"] = df_filtered["cat_name"].apply(
+    lambda x: "Plānots" if "PLĀNOTS" in str(x).upper() else "Avārija"
+)
+
 # ---------- KPI ----------
 df_closed = df_filtered[
     (df_filtered["is_ended"] == True) &
@@ -315,8 +320,8 @@ downtime_by_device = (
     .sort_values("duration_hours", ascending=True)
 )
 
-category_hours = (
-    df_filtered.groupby("cat_name", as_index=False)["duration_hours"]
+type_hours = (
+    df_filtered.groupby("type", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=False)
 )
@@ -325,16 +330,27 @@ category_hours = (
 fig_mttr = None
 if not mttr_by_month.empty:
     fig_mttr = go.Figure()
+
+    fig_mttr.add_trace(go.Scatter(
+        x=mttr_by_month["month"],
+        y=mttr_by_month["duration_hours"],
+        mode="lines",
+        line=dict(width=10, color="rgba(0,229,255,0.15)"),
+        hoverinfo="skip",
+        showlegend=False
+    ))
+
     fig_mttr.add_trace(go.Scatter(
         x=mttr_by_month["month"],
         y=mttr_by_month["duration_hours"],
         mode="lines+markers",
-        line=dict(width=4, color=ACCENT_1),
-        marker=dict(size=8),
+        line=dict(width=3, color=ACCENT_1),
+        marker=dict(size=7),
         fill="tozeroy",
         fillcolor="rgba(0,229,255,0.18)",
         name="MTTR"
     ))
+
     fig_mttr.update_layout(
         title="",
         yaxis_title="MTTR (stundas)",
@@ -345,16 +361,27 @@ if not mttr_by_month.empty:
 fig_mtbf = None
 if not mtbf_by_month.empty:
     fig_mtbf = go.Figure()
+
+    fig_mtbf.add_trace(go.Scatter(
+        x=mtbf_by_month["month"],
+        y=mtbf_by_month["mtbf_hours"],
+        mode="lines",
+        line=dict(width=10, color="rgba(255,179,0,0.15)"),
+        hoverinfo="skip",
+        showlegend=False
+    ))
+
     fig_mtbf.add_trace(go.Scatter(
         x=mtbf_by_month["month"],
         y=mtbf_by_month["mtbf_hours"],
         mode="lines+markers",
-        line=dict(width=4, color=ACCENT_2),
-        marker=dict(size=8),
+        line=dict(width=3, color=ACCENT_2),
+        marker=dict(size=7),
         fill="tozeroy",
         fillcolor="rgba(255,179,0,0.18)",
         name="MTBF"
     ))
+
     fig_mtbf.update_layout(
         title="",
         yaxis_title="MTBF (stundas)",
@@ -403,17 +430,22 @@ if not downtime_by_device.empty:
     apply_common_layout(fig_devices, height=520)
 
 fig_cat = None
-if not category_hours.empty:
-    fig_cat = go.Figure(data=[go.Pie(
-        labels=category_hours["cat_name"],
-        values=category_hours["duration_hours"],
-        hole=0.60,
+if not type_hours.empty:
+    fig_cat = px.pie(
+        type_hours,
+        names="type",
+        values="duration_hours",
+        hole=0.6,
+        color="type",
+        color_discrete_map={
+            "Plānots": "#00C853",
+            "Avārija": "#FF5252"
+        }
+    )
+    fig_cat.update_traces(
         textinfo="percent+label",
-        marker=dict(
-            colors=px.colors.sequential.Blues_r,
-            line=dict(color="#000000", width=1)
-        )
-    )])
+        marker=dict(line=dict(color="#000000", width=1))
+    )
     apply_common_layout(fig_cat, height=430)
 
 # ---------- IZKĀRTOJUMS ----------
@@ -446,7 +478,7 @@ with r2c1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 with r2c2:
-    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums pa kategorijām</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums: plānots / avārija</div>', unsafe_allow_html=True)
     if fig_cat is not None:
         st.plotly_chart(fig_cat, use_container_width=True)
     else:
@@ -471,6 +503,7 @@ show_columns = [
     "line",
     "device_location",
     "cat_name",
+    "type",
     "comments",
     "duration_hours",
     "is_ended"
