@@ -7,11 +7,10 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
 
 # ---------- TĒMA / KRĀSAS ----------
-PLOT_TEMPLATE = "plotly_dark"
 CUSTOM_BG = "#0E1117"
 CARD_BG = "#151A22"
 SIDEBAR_BG = "#11161F"
-GRID_COLOR = "rgba(255,255,255,0.08)"
+GRID_COLOR = "rgba(255,255,255,0.05)"
 BORDER_COLOR = "rgba(255,255,255,0.08)"
 TEXT_COLOR = "#F3F6FA"
 MUTED_TEXT = "#A9B4C2"
@@ -24,16 +23,23 @@ ACCENT_DANGER = "#FF5252"
 # Maksimālā dīkstāve, ko iekļaujam analītikā
 ANALYSIS_MAX_HOURS = 240
 
-def apply_common_layout(fig, height=420):
+def apply_common_layout(fig, height=400):
     fig.update_layout(
-        template=PLOT_TEMPLATE,
         height=height,
-        paper_bgcolor=CUSTOM_BG,
         plot_bgcolor=CARD_BG,
-        margin=dict(l=20, r=20, t=30, b=20),
+        paper_bgcolor=CUSTOM_BG,
         font=dict(color=TEXT_COLOR),
-        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
-        yaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor=GRID_COLOR,
+            zeroline=False
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor=GRID_COLOR,
+            zeroline=False
+        ),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
             font=dict(color=TEXT_COLOR)
@@ -372,81 +378,6 @@ def classify_type(cat_name: str) -> str:
 df_analysis["type"] = df_analysis["cat_name"].apply(classify_type)
 df_filtered["type"] = df_filtered["cat_name"].apply(classify_type)
 
-# ---------- DATU KVALITĀTE ----------
-missing_category = (df_analysis["cat_name"] == "Nav norādīts").sum()
-total_records = len(df_analysis)
-
-if total_records > 0:
-    missing_pct = (missing_category / total_records) * 100
-else:
-    missing_pct = 0
-
-st.markdown('<div class="insight-card"><div class="insight-title">Datu kvalitāte</div>', unsafe_allow_html=True)
-
-if missing_pct > 30:
-    st.error(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa (kritiska problēma)")
-elif missing_pct > 10:
-    st.warning(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa")
-else:
-    st.success(f"✅ Datu kvalitāte laba ({missing_pct:.1f}% bez cēloņa)")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ---------- DATU KVALITĀTE PĒC LĪNIJĀM ----------
-def apply_common_layout(fig, height=400):
-    fig.update_layout(
-        height=height,
-        plot_bgcolor="#0E1117",      # фон графика
-        paper_bgcolor="#0E1117",     # фон вокруг
-        font=dict(color="#F3F6FA"),
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(255,255,255,0.05)",
-            zerolinecolor="rgba(255,255,255,0.1)"
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(255,255,255,0.05)",
-            zerolinecolor="rgba(255,255,255,0.1)"
-        )
-    )
-quality_by_line = (
-    df_analysis.assign(missing=df_analysis["cat_name"] == "Nav norādīts")
-    .groupby("device_location")
-    .agg(
-        total=("cat_name", "count"),
-        missing=("missing", "sum")
-    )
-    .reset_index()
-)
-
-quality_by_line["missing_pct"] = (quality_by_line["missing"] / quality_by_line["total"]) * 100
-quality_by_line = quality_by_line.sort_values("missing_pct", ascending=False)
-
-st.markdown('<div class="chart-card"><div class="chart-title">Datu kvalitāte pa līnijām</div>', unsafe_allow_html=True)
-
-fig_quality = px.bar(
-    quality_by_line.head(10),
-    x="missing_pct",
-    y="device_location",
-    orientation="h",
-    text="missing_pct",
-    color="missing_pct",
-    color_continuous_scale="Reds",
-    labels={
-        "missing_pct": "% bez cēloņa",
-        "device_location": "Līnija"
-    }
-)
-
-fig_quality.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-fig_quality.update_layout(coloraxis_showscale=False)
-
-st.plotly_chart(fig_quality, use_container_width=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
 # ---------- KPI ----------
 df_closed = df_analysis[
     (df_analysis["is_ended"] == True) &
@@ -670,12 +601,62 @@ if not downtime_by_category.empty:
             "cat_name": "Cēlonis"
         }
     )
-    fig_cat_top.update_traces(
-        texttemplate="%{text:.1f}",
-        textposition="outside"
-    )
+    fig_cat_top.update_traces(texttemplate="%{text:.1f}", textposition="outside")
     fig_cat_top.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_cat_top, height=500)
+
+# ---------- DATU KVALITĀTE ----------
+missing_category = (df_analysis["cat_name"] == "Nav norādīts").sum()
+total_records = len(df_analysis)
+missing_pct = (missing_category / total_records) * 100 if total_records > 0 else 0
+
+# ---------- DATU KVALITĀTE PĒC LĪNIJĀM ----------
+quality_by_line = (
+    df_analysis.assign(missing=df_analysis["cat_name"] == "Nav norādīts")
+    .groupby("line")
+    .agg(
+        total=("cat_name", "count"),
+        missing=("missing", "sum")
+    )
+    .reset_index()
+)
+
+quality_by_line["missing_pct"] = (quality_by_line["missing"] / quality_by_line["total"]) * 100
+quality_by_line = quality_by_line.sort_values("missing_pct", ascending=False)
+
+fig_quality = None
+if not quality_by_line.empty:
+    fig_quality = px.bar(
+        quality_by_line.head(10),
+        x="missing_pct",
+        y="line",
+        orientation="h",
+        text="missing_pct",
+        color="missing_pct",
+        color_continuous_scale="Reds",
+        labels={
+            "missing_pct": "% bez cēloņa",
+            "line": "Līnija"
+        }
+    )
+    fig_quality.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig_quality.update_layout(coloraxis_showscale=False)
+    apply_common_layout(fig_quality, height=500)
+
+# ---------- REKOMENDĀCIJAS ----------
+recommendations = []
+
+for _, row in downtime_by_category.sort_values("duration_hours", ascending=False).head(5).iterrows():
+    cause = str(row["cat_name"]).upper()
+
+    if "STOP" in cause:
+        recommendations.append(f"🔧 {row['cat_name']}: pārbaudīt sensorus un automātikas kļūdas")
+    elif "NAV NORĀDĪTS" in cause:
+        recommendations.append(f"⚠️ {row['cat_name']}: jāuzlabo datu ievade (tehniķiem jānorāda cēlonis)")
+    elif "PLĀNOTS" in cause:
+        recommendations.append(f"📅 {row['cat_name']}: optimizēt plānoto apkopju grafiku")
+    else:
+        recommendations.append(f"🛠 {row['cat_name']}: nepieciešama detalizēta analīze")
 
 # ---------- AUTOMĀTISKIE SECINĀJUMI ----------
 top_line = "-"
@@ -692,37 +673,33 @@ if excluded_anomalies > 0:
         f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti "
         f"(>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h."
     )
-# ---------- REKOMENDĀCIJAS ----------
-recommendations = []
-
-for _, row in downtime_by_category.sort_values("duration_hours", ascending=False).head(5).iterrows():
-    cause = row["cat_name"].upper()
-
-    if "STOP" in cause:
-        recommendations.append(f"🔧 {row['cat_name']}: pārbaudīt sensorus un automātikas kļūdas")
-
-    elif "NAV NORĀDĪTS" in cause:
-        recommendations.append(f"⚠️ {row['cat_name']}: jāuzlabo datu ievade (tehniķiem jānorāda cēlonis)")
-
-    elif "PLĀNOTS" in cause:
-        recommendations.append(f"📅 {row['cat_name']}: optimizēt plānoto apkopju grafiku")
-
-    else:
-        recommendations.append(f"🛠 {row['cat_name']}: nepieciešama detalizēta analīze")
-
-# ---------- OUTPUT ----------
-st.markdown('<div class="insight-card"><div class="insight-title">Ieteikumi darbībai</div>', unsafe_allow_html=True)
-
-if recommendations:
-    for r in recommendations:
-        st.markdown(f"- {r}")
-else:
-    st.write("Nav pietiekamu datu rekomendācijām")
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- LAPAS ----------
 if page == "📊 Dīkstāves analīze":
+    st.markdown('<div class="insight-card"><div class="insight-title">Datu kvalitāte</div>', unsafe_allow_html=True)
+    if missing_pct > 30:
+        st.error(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa (kritiska problēma)")
+    elif missing_pct > 10:
+        st.warning(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa")
+    else:
+        st.success(f"✅ Datu kvalitāte laba ({missing_pct:.1f}% bez cēloņa)")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Datu kvalitāte pa līnijām</div>', unsafe_allow_html=True)
+    if fig_quality is not None:
+        st.plotly_chart(fig_quality, use_container_width=True)
+    else:
+        st.info("Nav datu kvalitātes analīzei")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="insight-card"><div class="insight-title">Ieteikumi darbībai</div>', unsafe_allow_html=True)
+    if recommendations:
+        for r in recommendations:
+            st.markdown(f"- {r}")
+    else:
+        st.write("Nav pietiekamu datu rekomendācijām")
+    st.markdown("</div>", unsafe_allow_html=True)
+
     k1, k2, k3, k4 = st.columns(4)
 
     with k1:
@@ -814,7 +791,6 @@ if page == "📊 Dīkstāves analīze":
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati (ar anomāliju atzīmi)</div>', unsafe_allow_html=True)
-
     show_columns = [
         "id",
         "start_date",
@@ -829,10 +805,8 @@ if page == "📊 Dīkstāves analīze":
         "is_ended",
         "is_anomaly"
     ]
-
     existing_columns = [col for col in show_columns if col in df_filtered.columns]
     st.dataframe(df_filtered[existing_columns], use_container_width=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "📈 Paplašināta analīze":
