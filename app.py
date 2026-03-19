@@ -10,6 +10,7 @@ st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
 PLOT_TEMPLATE = "plotly_dark"
 CUSTOM_BG = "#0E1117"
 CARD_BG = "#151A22"
+SIDEBAR_BG = "#11161F"
 GRID_COLOR = "rgba(255,255,255,0.08)"
 BORDER_COLOR = "rgba(255,255,255,0.08)"
 TEXT_COLOR = "#F3F6FA"
@@ -19,6 +20,9 @@ ACCENT_2 = "#FFB300"
 ACCENT_SUCCESS = "#00E676"
 ACCENT_WARNING = "#FFC107"
 ACCENT_DANGER = "#FF5252"
+
+# Maksimālā dīkstāve, ko iekļaujam analītikā
+ANALYSIS_MAX_HOURS = 240
 
 def apply_common_layout(fig, height=420):
     fig.update_layout(
@@ -50,6 +54,35 @@ st.markdown(
         padding-top: 1.2rem;
         padding-bottom: 2rem;
         max-width: 1500px;
+    }}
+
+    [data-testid="stSidebar"] {{
+        background: {SIDEBAR_BG};
+        border-right: 1px solid {BORDER_COLOR};
+    }}
+
+    [data-testid="stSidebar"] * {{
+        color: {TEXT_COLOR} !important;
+    }}
+
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div {{
+        color: {TEXT_COLOR} !important;
+    }}
+
+    [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="tag"] {{
+        background-color: #223041 !important;
+        border: 1px solid {BORDER_COLOR} !important;
+        color: {TEXT_COLOR} !important;
+    }}
+
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea,
+    [data-testid="stSidebar"] [data-baseweb="select"],
+    [data-testid="stSidebar"] [data-baseweb="popover"] {{
+        color: {TEXT_COLOR} !important;
     }}
 
     .pro-title {{
@@ -264,13 +297,6 @@ date_range = st.sidebar.date_input(
     value=(min_date.date(), max_date.date())
 )
 
-if isinstance(date_range, tuple) and len(date_range) == 2:
-    start_filter = pd.to_datetime(date_range[0])
-    end_filter = pd.to_datetime(date_range[1])
-else:
-    start_filter = min_date
-    end_filter = max_date
-
 # ---------- NAVIGĀCIJA ----------
 st.sidebar.markdown("## Navigācija")
 
@@ -282,6 +308,13 @@ page = st.sidebar.radio(
         "🛠 API debug"
     ]
 )
+
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_filter = pd.to_datetime(date_range[0])
+    end_filter = pd.to_datetime(date_range[1])
+else:
+    start_filter = min_date
+    end_filter = max_date
 
 df_filtered = df[
     (df["line"].isin(selected_lines)) &
@@ -295,6 +328,21 @@ if df_filtered.empty:
 
 df_filtered["month"] = df_filtered["start_date"].dt.to_period("M").astype(str)
 
+# ---------- ANOMĀLIJU FILTRS ----------
+df_filtered["is_anomaly"] = df_filtered["duration_hours"] > ANALYSIS_MAX_HOURS
+
+df_analysis = df_filtered[
+    (df_filtered["duration_hours"] >= 0) &
+    (df_filtered["duration_hours"] <= ANALYSIS_MAX_HOURS)
+].copy()
+
+excluded_anomalies = int(df_filtered["is_anomaly"].sum())
+excluded_anomaly_hours = float(df_filtered.loc[df_filtered["is_anomaly"], "duration_hours"].sum())
+
+if df_analysis.empty:
+    st.warning("Pēc anomāli lielo dīkstāves ierakstu izslēgšanas analīzei nav datu.")
+    st.stop()
+
 # ---------- TIPS ----------
 def classify_type(cat_name: str) -> str:
     cat_upper = str(cat_name).upper()
@@ -302,18 +350,19 @@ def classify_type(cat_name: str) -> str:
         return "Plānots"
     return "Avārija"
 
+df_analysis["type"] = df_analysis["cat_name"].apply(classify_type)
 df_filtered["type"] = df_filtered["cat_name"].apply(classify_type)
 
 # ---------- KPI ----------
-df_closed = df_filtered[
-    (df_filtered["is_ended"] == True) &
-    (df_filtered["duration_hours"] > 0) &
-    (df_filtered["duration_hours"] < 24)
+df_closed = df_analysis[
+    (df_analysis["is_ended"] == True) &
+    (df_analysis["duration_hours"] > 0) &
+    (df_analysis["duration_hours"] < 24)
 ].copy()
 
 mttr = df_closed["duration_hours"].mean() if not df_closed.empty else 0
 
-df_failures = df_filtered.sort_values("start_date").copy()
+df_failures = df_analysis.sort_values("start_date").copy()
 if len(df_failures) > 1:
     df_failures["prev_start"] = df_failures["start_date"].shift(1)
     df_failures["mtbf_hours"] = (
@@ -324,8 +373,8 @@ else:
     df_failures["mtbf_hours"] = pd.NA
     mtbf = 0
 
-total_downtime_hours = df_filtered["duration_hours"].sum()
-total_events = len(df_filtered)
+total_downtime_hours = df_analysis["duration_hours"].sum()
+total_events = len(df_analysis)
 
 # ---------- AGREGĀCIJAS ----------
 mttr_by_month = (
@@ -342,13 +391,13 @@ mtbf_by_month = (
 )
 
 downtime_by_line = (
-    df_filtered.groupby("line", as_index=False)["duration_hours"]
+    df_analysis.groupby("line", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=True)
 )
 
 downtime_by_device = (
-    df_filtered.groupby("device_name", as_index=False)["duration_hours"]
+    df_analysis.groupby("device_name", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=False)
     .head(10)
@@ -356,21 +405,29 @@ downtime_by_device = (
 )
 
 type_hours = (
-    df_filtered.groupby("type", as_index=False)["duration_hours"]
+    df_analysis.groupby("type", as_index=False)["duration_hours"]
     .sum()
     .sort_values("duration_hours", ascending=False)
 )
 
 events_by_month = (
-    df_filtered.groupby("month", as_index=False)
+    df_analysis.groupby("month", as_index=False)
     .size()
     .rename(columns={"size": "events"})
     .sort_values("month")
 )
 
 avg_downtime_by_line = (
-    df_filtered.groupby("line", as_index=False)["duration_hours"]
+    df_analysis.groupby("line", as_index=False)["duration_hours"]
     .mean()
+    .sort_values("duration_hours", ascending=True)
+)
+
+downtime_by_category = (
+    df_analysis.groupby("cat_name", as_index=False)["duration_hours"]
+    .sum()
+    .sort_values("duration_hours", ascending=False)
+    .head(10)
     .sort_values("duration_hours", ascending=True)
 )
 
@@ -504,6 +561,28 @@ if not avg_downtime_by_line.empty:
     fig_avg_line.update_traces(texttemplate="%{text:.2f}", textposition="outside")
     apply_common_layout(fig_avg_line, height=430)
 
+fig_cat_top = None
+if not downtime_by_category.empty:
+    fig_cat_top = px.bar(
+        downtime_by_category,
+        x="duration_hours",
+        y="cat_name",
+        orientation="h",
+        text="duration_hours",
+        color="duration_hours",
+        color_continuous_scale="Reds",
+        labels={
+            "duration_hours": "Stundas",
+            "cat_name": "Cēlonis"
+        }
+    )
+    fig_cat_top.update_traces(
+        texttemplate="%{text:.1f}",
+        textposition="outside"
+    )
+    fig_cat_top.update_layout(coloraxis_showscale=False)
+    apply_common_layout(fig_cat_top, height=500)
+
 # ---------- AUTOMĀTISKIE SECINĀJUMI ----------
 top_line = "-"
 top_device = "-"
@@ -513,6 +592,12 @@ if not downtime_by_line.empty:
 
 if not downtime_by_device.empty:
     top_device = downtime_by_device.sort_values("duration_hours", ascending=False).iloc[0]["device_name"]
+
+if excluded_anomalies > 0:
+    st.info(
+        f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti "
+        f"(>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h."
+    )
 
 # ---------- LAPAS ----------
 if page == "📊 Dīkstāves analīze":
@@ -606,7 +691,7 @@ if page == "📊 Dīkstāves analīze":
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati (ar anomāliju atzīmi)</div>', unsafe_allow_html=True)
 
     show_columns = [
         "id",
@@ -619,7 +704,8 @@ if page == "📊 Dīkstāves analīze":
         "type",
         "comments",
         "duration_hours",
-        "is_ended"
+        "is_ended",
+        "is_anomaly"
     ]
 
     existing_columns = [col for col in show_columns if col in df_filtered.columns]
@@ -630,9 +716,11 @@ if page == "📊 Dīkstāves analīze":
 elif page == "📈 Paplašināta analīze":
     st.markdown('<div class="chart-card"><div class="chart-title">Paplašināta analīze</div>', unsafe_allow_html=True)
     st.markdown(
-        """
-        Šajā sadaļā varam droši pievienot jaunus grafikus, neizveidojot atsevišķu pages struktūru.
-        """
+        f"""
+        Šajā sadaļā tiek izmantoti tikai ieraksti līdz <b>{ANALYSIS_MAX_HOURS} h</b>,
+        lai anomāli lielas dīkstāves neizkropļotu rezultātus.
+        """,
+        unsafe_allow_html=True
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -654,12 +742,19 @@ elif page == "📈 Paplašināta analīze":
             st.info("Nav datu vidējās dīkstāves analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
 
+    st.markdown('<div class="chart-card"><div class="chart-title">Top dīkstāves cēloņi</div>', unsafe_allow_html=True)
+    if fig_cat_top is not None:
+        st.plotly_chart(fig_cat_top, use_container_width=True)
+    else:
+        st.info("Nav datu cēloņu analīzei")
+    st.markdown("</div>", unsafe_allow_html=True)
+
     line_summary = (
-        df_filtered.groupby("line", as_index=False)
+        df_analysis.groupby("line", as_index=False)
         .agg(
             total_hours=("duration_hours", "sum"),
             avg_hours=("duration_hours", "mean"),
-            events=("id", "count") if "id" in df_filtered.columns else ("duration_hours", "count")
+            events=("id", "count") if "id" in df_analysis.columns else ("duration_hours", "count")
         )
         .sort_values("total_hours", ascending=False)
     )
@@ -674,7 +769,10 @@ elif page == "🛠 API debug":
     debug_info = {
         "BASE_URL": BASE_URL,
         "ROWS_FROM_API": len(rows),
-        "FILTERED_ROWS": len(df_filtered),
+        "FILTERED_ROWS_RAW": len(df_filtered),
+        "FILTERED_ROWS_ANALYSIS": len(df_analysis),
+        "EXCLUDED_ANOMALIES": excluded_anomalies,
+        "ANALYSIS_MAX_HOURS": ANALYSIS_MAX_HOURS,
         "DATE_START_FILTER": str(start_filter),
         "DATE_END_FILTER": str(end_filter),
         "SELECTED_LINES_COUNT": len(selected_lines),
@@ -697,7 +795,22 @@ elif page == "🛠 API debug":
     st.markdown("### Pieejamās kolonnas")
     st.write(df.columns.tolist())
 
-    st.markdown("### Pirmās 5 rindas")
+    st.markdown("### Pirmās 5 rindas (raw)")
     st.dataframe(df.head(5), use_container_width=True)
+
+    st.markdown("### Anomāli lielie ieraksti")
+    anomaly_view = df_filtered[df_filtered["is_anomaly"]].copy()
+    if not anomaly_view.empty:
+        st.dataframe(
+            anomaly_view[[
+                col for col in [
+                    "id", "start_date", "end_date", "device_name",
+                    "line", "cat_name", "duration_hours", "comments"
+                ] if col in anomaly_view.columns
+            ]],
+            use_container_width=True
+        )
+    else:
+        st.success("Anomāli lielu dīkstāves ierakstu izvēlētajā periodā nav.")
 
     st.markdown("</div>", unsafe_allow_html=True)
