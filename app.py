@@ -116,6 +116,25 @@ st.markdown(
         font-size: 0.95rem;
         margin-bottom: 1.2rem;
     }}
+# ---------- DATU KVALITĀTE ----------
+missing_category = (df_analysis["cat_name"] == "Nav norādīts").sum()
+total_records = len(df_analysis)
+
+if total_records > 0:
+    missing_pct = (missing_category / total_records) * 100
+else:
+    missing_pct = 0
+
+st.markdown('<div class="insight-card"><div class="insight-title">Datu kvalitāte</div>', unsafe_allow_html=True)
+
+if missing_pct > 30:
+    st.error(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa (kritiska problēma)")
+elif missing_pct > 10:
+    st.warning(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa")
+else:
+    st.success(f"✅ Datu kvalitāte laba ({missing_pct:.1f}% bez cēloņa)")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
     .kpi-card {{
         background: linear-gradient(180deg, #171D26 0%, #121720 100%);
