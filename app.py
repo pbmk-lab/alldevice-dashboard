@@ -17,13 +17,21 @@ def apply_common_layout(fig, height=420):
     fig.update_layout(
         template=PLOT_TEMPLATE,
         height=height,
+        paper_bgcolor=CUSTOM_BG,
+        plot_bgcolor=CARD_BG,
         margin=dict(l=20, r=20, t=40, b=20),
+        font=dict(color="white"),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor=GRID_COLOR
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor=GRID_COLOR
+        ),
         legend=dict(
-            orientation="v",
-            yanchor="top",
-            y=1,
-            xanchor="left",
-            x=1.01
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white")
         )
     )
     return fig
