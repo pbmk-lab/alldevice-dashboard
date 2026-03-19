@@ -164,7 +164,7 @@ st.markdown(
 )
 
 # ---------- SECRETS ----------
-BASE_URL = st.secrets["BASE_URL"]
+st.write(BASE_URL) = st.secrets["BASE_URL"]
 USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 API_KEY = st.secrets["API_KEY"]
