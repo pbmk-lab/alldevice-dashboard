@@ -961,30 +961,158 @@ elif page == "🧾 Task reports":
         st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
-    st.markdown("### API atbilde")
-    st.json({
-        "success": taskreports_data.get("success"),
-        "response_type": str(type(taskreports_data.get("response"))),
-    })
-
     response_obj = taskreports_data.get("response", {})
 
-    if isinstance(response_obj, dict):
-        st.markdown("### Response atslēgas")
-        st.write(list(response_obj.keys()))
+    if not isinstance(response_obj, dict):
+        st.error("Taskreports API response formāts nav gaidītais.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.stop()
 
-        taskreports_rows = response_obj.get("data", [])
-        st.markdown(f"### Ierakstu skaits: {len(taskreports_rows)}")
+    taskreports_rows = response_obj.get("data", [])
+    total_reports_api = response_obj.get("total", 0)
 
-        if taskreports_rows:
-            tr_df = pd.DataFrame(taskreports_rows)
-            st.markdown("### Pirmās 5 rindas")
-            st.dataframe(tr_df.head(5), use_container_width=True)
+    if not taskreports_rows:
+        st.info("Taskreports API strādā, bet šobrīd neatgrieza ierakstus.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.stop()
+
+    tr_df = pd.DataFrame(taskreports_rows)
+
+    # ---------- DATU SAGATAVOŠANA ----------
+    tr_df["total_time_seconds"] = pd.to_numeric(
+        tr_df.get("total_time_seconds"), errors="coerce"
+    ).fillna(0)
+
+    tr_df["total_hours"] = tr_df["total_time_seconds"] / 3600
+
+    tr_df["service_name"] = tr_df.get("service_name", "").fillna("Nav norādīts")
+    tr_df["device_name"] = tr_df.get("device_name", "").fillna("Nav norādīts")
+    tr_df["device_location"] = tr_df.get("device_location", "").fillna("Nav norādīts")
+    tr_df["user_name_list"] = tr_df.get("user_name_list", "").fillna("Nav norādīts")
+    tr_df["report_nr"] = tr_df.get("report_nr", "").fillna("Nav norādīts")
+
+    # ---------- KPI ----------
+    total_reports = len(tr_df)
+    total_hours = tr_df["total_hours"].sum()
+    avg_report_hours = tr_df["total_hours"].mean() if total_reports > 0 else 0
+    unique_workers = tr_df["user_name_list"].nunique()
+
+    k1, k2, k3, k4 = st.columns(4)
+
+    with k1:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">Saņemtie reporti</div><div class="kpi-value">{total_reports}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k2:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">API kopējais reportu skaits</div><div class="kpi-value">{total_reports_api}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k3:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">Kopējās darba stundas</div><div class="kpi-value">{total_hours:.1f}</div></div>',
+            unsafe_allow_html=True
+        )
+    with k4:
+        st.markdown(
+            f'<div class="kpi-card"><div class="kpi-label">Vidēji stundas uz reportu</div><div class="kpi-value">{avg_report_hours:.2f}</div></div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------- TOP TEHNIĶI ----------
+    tech_hours = (
+        tr_df.groupby("user_name_list", as_index=False)["total_hours"]
+        .sum()
+        .sort_values("total_hours", ascending=False)
+        .head(10)
+        .sort_values("total_hours", ascending=True)
+    )
+
+    fig_tech = None
+    if not tech_hours.empty:
+        fig_tech = px.bar(
+            tech_hours,
+            x="total_hours",
+            y="user_name_list",
+            orientation="h",
+            text="total_hours",
+            color="total_hours",
+            color_continuous_scale="Blues",
+            labels={
+                "total_hours": "Stundas",
+                "user_name_list": "Tehniķis"
+            }
+        )
+        fig_tech.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig_tech.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_tech, height=500)
+
+    # ---------- TOP DARBI ----------
+    service_hours = (
+        tr_df.groupby("service_name", as_index=False)["total_hours"]
+        .sum()
+        .sort_values("total_hours", ascending=False)
+        .head(10)
+        .sort_values("total_hours", ascending=True)
+    )
+
+    fig_service = None
+    if not service_hours.empty:
+        fig_service = px.bar(
+            service_hours,
+            x="total_hours",
+            y="service_name",
+            orientation="h",
+            text="total_hours",
+            color="total_hours",
+            color_continuous_scale="Tealgrn",
+            labels={
+                "total_hours": "Stundas",
+                "service_name": "Darbs"
+            }
+        )
+        fig_service.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig_service.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_service, height=500)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown('<div class="chart-card"><div class="chart-title">Top tehniķi pēc darba stundām</div>', unsafe_allow_html=True)
+        if fig_tech is not None:
+            st.plotly_chart(fig_tech, use_container_width=True)
         else:
-            st.info("Taskreports API strādā, bet šobrīd neatgrieza ierakstus.")
-    else:
-        st.write(response_obj)
+            st.info("Nav datu tehniķu analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
 
+    with c2:
+        st.markdown('<div class="chart-card"><div class="chart-title">Top darbi pēc darba stundām</div>', unsafe_allow_html=True)
+        if fig_service is not None:
+            st.plotly_chart(fig_service, use_container_width=True)
+        else:
+            st.info("Nav datu darbu analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------- TABULA ----------
+    st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
+
+    show_cols = [
+        "report_id",
+        "report_nr",
+        "service_name",
+        "device_name",
+        "device_location",
+        "user_name_list",
+        "total_time",
+        "total_time_seconds",
+        "total_hours"
+    ]
+    existing_cols = [c for c in show_cols if c in tr_df.columns]
+
+    st.dataframe(tr_df[existing_cols], use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "🛠 API debug":
