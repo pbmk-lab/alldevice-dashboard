@@ -617,6 +617,34 @@ if excluded_anomalies > 0:
         f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti "
         f"(>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h."
     )
+# ---------- REKOMENDĀCIJAS ----------
+recommendations = []
+
+for _, row in downtime_by_category.sort_values("duration_hours", ascending=False).head(5).iterrows():
+    cause = row["cat_name"].upper()
+
+    if "STOP" in cause:
+        recommendations.append(f"🔧 {row['cat_name']}: pārbaudīt sensorus un automātikas kļūdas")
+
+    elif "NAV NORĀDĪTS" in cause:
+        recommendations.append(f"⚠️ {row['cat_name']}: jāuzlabo datu ievade (tehniķiem jānorāda cēlonis)")
+
+    elif "PLĀNOTS" in cause:
+        recommendations.append(f"📅 {row['cat_name']}: optimizēt plānoto apkopju grafiku")
+
+    else:
+        recommendations.append(f"🛠 {row['cat_name']}: nepieciešama detalizēta analīze")
+
+# ---------- OUTPUT ----------
+st.markdown('<div class="insight-card"><div class="insight-title">Ieteikumi darbībai</div>', unsafe_allow_html=True)
+
+if recommendations:
+    for r in recommendations:
+        st.markdown(f"- {r}")
+else:
+    st.write("Nav pietiekamu datu rekomendācijām")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- LAPAS ----------
 if page == "📊 Dīkstāves analīze":
