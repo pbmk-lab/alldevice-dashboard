@@ -9,6 +9,10 @@ st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
 # ---------- STILS ----------
 PLOT_TEMPLATE = "plotly_dark"
 
+CUSTOM_BG = "#0E1117"
+CARD_BG = "#1A1D24"
+GRID_COLOR = "rgba(255,255,255,0.08)"
+
 def apply_common_layout(fig, height=420):
     fig.update_layout(
         template=PLOT_TEMPLATE,
