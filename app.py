@@ -165,7 +165,6 @@ st.markdown(
 
 # ---------- SECRETS ----------
 BASE_URL = st.secrets["BASE_URL"]
-st.write(BASE_URL)
 USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
 API_KEY = st.secrets["API_KEY"]
@@ -182,10 +181,12 @@ payload = {
 }
 
 try:
-    response = requests.post(...)
+    response = requests.post(BASE_URL, json=payload, timeout=60)
+    response.raise_for_status()
     data = response.json()
-except:
-    st.error("Нет доступа к API")
+except Exception as e:
+    st.error(f"Neizdevās iegūt datus no API: {e}")
+    st.stop()
 
 if not data.get("success"):
     st.error(f"API kļūda: {data}")
