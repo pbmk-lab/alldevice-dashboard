@@ -224,7 +224,7 @@ if not mttr_by_month.empty:
         x=mttr_by_month["month"],
         y=mttr_by_month["duration_hours"],
         mode="lines+markers",
-        line=dict(width=4, color="#00BFFF"),
+        line=dict(width=4, color="#00E5FF"),
         marker=dict(size=8),
         fill="tozeroy",
         fillcolor="rgba(0,191,255,0.20)",
