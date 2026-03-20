@@ -20,7 +20,6 @@ ACCENT_SUCCESS = "#00E676"
 ACCENT_WARNING = "#FFC107"
 ACCENT_DANGER = "#FF5252"
 
-# Maksimālā dīkstāve, ko iekļaujam analītikā
 ANALYSIS_MAX_HOURS = 240
 
 
@@ -273,11 +272,13 @@ def load_data():
     response.raise_for_status()
     return response.json()
 
+
 @st.cache_data(ttl=300)
 def load_taskreports():
     response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=10)
     response.raise_for_status()
     return response.json()
+
 
 try:
     with st.spinner("Ielādē datus..."):
@@ -346,16 +347,21 @@ def extract_line(location: str) -> str:
                 return line_name
     return "Cits"
 
+
 df["line"] = df["device_location"].apply(extract_line)
 
 # ---------- FILTRI ----------
 st.sidebar.markdown("## Filtri")
 
-lines = sorted(df["line"].dropna().unique().tolist())
+ordered_lines = [line for line in LINE_MAPPING.keys() if line in df["line"].unique()]
+if "Cits" in df["line"].unique():
+    ordered_lines.append("Cits")
+
 selected_lines = st.sidebar.multiselect(
     "Izvēlies līnijas",
-    options=lines,
-    default=lines
+    options=ordered_lines,
+    default=ordered_lines,
+    placeholder="Izvēlies līnijas"
 )
 
 min_date = df["start_date"].min()
@@ -995,7 +1001,6 @@ elif page == "🧾 Task reports":
     total_reports = len(tr_df)
     total_hours = tr_df["total_hours"].sum()
     avg_report_hours = tr_df["total_hours"].mean() if total_reports > 0 else 0
-    unique_workers = tr_df["user_name_list"].nunique()
 
     k1, k2, k3, k4 = st.columns(4)
 
@@ -1078,6 +1083,36 @@ elif page == "🧾 Task reports":
         fig_service.update_layout(coloraxis_showscale=False)
         apply_common_layout(fig_service, height=500)
 
+    # ---------- STUNDAS PA LĪNIJĀM ----------
+    tr_df["report_line"] = tr_df["device_location"].apply(extract_line)
+
+    hours_by_line = (
+        tr_df.groupby("report_line", as_index=False)["total_hours"]
+        .sum()
+        .sort_values("total_hours", ascending=False)
+        .head(10)
+        .sort_values("total_hours", ascending=True)
+    )
+
+    fig_line_hours = None
+    if not hours_by_line.empty:
+        fig_line_hours = px.bar(
+            hours_by_line,
+            x="total_hours",
+            y="report_line",
+            orientation="h",
+            text="total_hours",
+            color="total_hours",
+            color_continuous_scale="Oranges",
+            labels={
+                "total_hours": "Stundas",
+                "report_line": "Līnija"
+            }
+        )
+        fig_line_hours.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig_line_hours.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_line_hours, height=520)
+
     c1, c2 = st.columns(2)
 
     with c1:
@@ -1095,34 +1130,14 @@ elif page == "🧾 Task reports":
         else:
             st.info("Nav datu darbu analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
-    # ---------- STUNDAS PA LĪNIJĀM ----------
-    hours_by_line = (
-        tr_df.groupby("device_location", as_index=False)["total_hours"]
-        .sum()
-        .sort_values("total_hours", ascending=False)
-        .head(10)
-        .sort_values("total_hours", ascending=True)
-    )
 
-    fig_line_hours = None
-    if not hours_by_line.empty:
-        fig_line_hours = px.bar(
-            hours_by_line,
-            x="total_hours",
-            y="device_location",
-            orientation="h",
-            text="total_hours",
-            color="total_hours",
-            color_continuous_scale="Oranges",
-            labels={
-                "total_hours": "Stundas",
-                "device_location": "Līnija"
-            }
-        )
-        fig_line_hours.update_traces(texttemplate="%{text:.1f}", textposition="outside")
-        fig_line_hours.update_layout(coloraxis_showscale=False)
-        apply_common_layout(fig_line_hours, height=520)
-    
+    st.markdown('<div class="chart-card"><div class="chart-title">Darba stundas pa līnijām</div>', unsafe_allow_html=True)
+    if fig_line_hours is not None:
+        st.plotly_chart(fig_line_hours, use_container_width=True)
+    else:
+        st.info("Nav datu līniju analīzei")
+    st.markdown("</div>", unsafe_allow_html=True)
+
     # ---------- TABULA ----------
     st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
 
@@ -1131,6 +1146,7 @@ elif page == "🧾 Task reports":
         "report_nr",
         "service_name",
         "device_name",
+        "report_line",
         "device_location",
         "user_name_list",
         "total_time",
