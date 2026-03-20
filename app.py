@@ -4,12 +4,11 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-# ---------- КОНФИГУРАЦИЯ СТРАНИЦЫ ----------
 st.set_page_config(page_title="Alldevice dīkstāves", layout="wide", initial_sidebar_state="expanded")
 
 # ---------- TĒMA / KRĀSAS (Premium Neon & Glassmorphism) ----------
-CUSTOM_BG = "#04070b"  # Глубокий темный фон
-CARD_BG = "rgba(16, 22, 31, 0.65)" # Полупрозрачное стекло
+CUSTOM_BG = "#04070b"  # Deep dark background
+CARD_BG = "rgba(16, 22, 31, 0.65)" # Translucent glass
 GRID_COLOR = "rgba(255,255,255,0.04)"
 BORDER_COLOR = "rgba(255,255,255,0.08)"
 TEXT_COLOR = "#F3F6FA"
@@ -857,6 +856,7 @@ elif page == "🧾 Task reports":
     tr_df["device_location"] = tr_df.get("device_location", "").fillna("Nav norādīts")
     tr_df["user_name_list"] = tr_df.get("user_name_list", "").fillna("Nav norādīts")
     tr_df["report_nr"] = tr_df.get("report_nr", "").fillna("Nav norādīts")
+    tr_df["report_line"] = tr_df["device_location"].apply(extract_line)
 
     total_reports = len(tr_df)
     total_hours = tr_df["total_hours"].sum()
@@ -864,9 +864,9 @@ elif page == "🧾 Task reports":
 
     k1, k2, k3, k4 = st.columns(4)
     with k1: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Saņemtie reporti</div><div class="kpi-value">{total_reports}</div></div>', unsafe_allow_html=True)
-    with k2: st.markdown(f'<div class="kpi-card"><div class="kpi-label">API kopējais reportu skaits</div><div class="kpi-value">{total_reports_api}</div></div>', unsafe_allow_html=True)
-    with k3: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Kopējās darba stundas</div><div class="kpi-value">{total_hours:.1f}</div></div>', unsafe_allow_html=True)
-    with k4: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Vidēji stundas uz reportu</div><div class="kpi-value">{avg_report_hours:.2f}</div></div>', unsafe_allow_html=True)
+    with k2: st.markdown(f'<div class="kpi-card"><div class="kpi-label">API reportu skaits</div><div class="kpi-value">{total_reports_api}</div></div>', unsafe_allow_html=True)
+    with k3: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Kopējās stundas</div><div class="kpi-value">{total_hours:.1f}</div></div>', unsafe_allow_html=True)
+    with k4: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Vidēji stundas/reportu</div><div class="kpi-value">{avg_report_hours:.2f}</div></div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     tech_hours = tr_df.groupby("user_name_list", as_index=False)["total_hours"].sum().sort_values("total_hours", ascending=False).head(10).sort_values("total_hours", ascending=True)
@@ -880,4 +880,44 @@ elif page == "🧾 Task reports":
     service_hours = tr_df.groupby("service_name", as_index=False)["total_hours"].sum().sort_values("total_hours", ascending=False).head(10).sort_values("total_hours", ascending=True)
     fig_service = None
     if not service_hours.empty:
-        fig_service = px.bar(service_hours, x="total_hours", y="service
+        fig_service = px.bar(service_hours, x="total_hours", y="service_name", orientation="h", text="total_hours", color="total_hours", color_continuous_scale="Tealgrn", labels={"total_hours": "Stundas", "service_name": "Darbs"})
+        fig_service.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
+        fig_service.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_service, height=500)
+
+    hours_by_line = tr_df.groupby("report_line", as_index=False)["total_hours"].sum().sort_values("total_hours", ascending=False).head(10).sort_values("total_hours", ascending=True)
+    fig_line_hours = None
+    if not hours_by_line.empty:
+        fig_line_hours = px.bar(hours_by_line, x="total_hours", y="report_line", orientation="h", text="total_hours", color="total_hours", color_continuous_scale="Oranges", labels={"total_hours": "Stundas", "report_line": "Līnija"})
+        fig_line_hours.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
+        fig_line_hours.update_layout(coloraxis_showscale=False)
+        apply_common_layout(fig_line_hours, height=520)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown('<div class="chart-card"><div class="chart-title">Top tehniķi pēc stundām</div>', unsafe_allow_html=True)
+        if fig_tech is not None: st.plotly_chart(fig_tech, use_container_width=True)
+        else: st.info("Nav datu tehniķu analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown('<div class="chart-card"><div class="chart-title">Top darbi pēc stundām</div>', unsafe_allow_html=True)
+        if fig_service is not None: st.plotly_chart(fig_service, use_container_width=True)
+        else: st.info("Nav datu darbu analīzei")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Darba stundas pa līnijām</div>', unsafe_allow_html=True)
+    if fig_line_hours is not None: st.plotly_chart(fig_line_hours, use_container_width=True)
+    else: st.info("Nav datu līniju analīzei")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
+    show_cols = ["report_id", "report_nr", "service_name", "device_name", "report_line", "device_location", "user_name_list", "total_time", "total_time_seconds", "total_hours"]
+    existing_cols = [c for c in show_cols if c in tr_df.columns]
+    st.dataframe(tr_df[existing_cols], use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+elif page == "🛠 API debug":
+    st.markdown('<div class="chart-card"><div class="chart-title">API debug</div>', unsafe_allow_html=True)
+    st.json({"ROWS_FROM_API": len(rows), "FILTERED_ROWS_RAW": len(df_filtered), "SUCCESS_FLAG": data.get("success")})
+    st.markdown("</div>", unsafe_allow_html=True)
