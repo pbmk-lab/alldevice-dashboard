@@ -4,107 +4,108 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Alldevice dīkstāves", layout="wide")
+# ---------- КОНФИГУРАЦИЯ СТРАНИЦЫ ----------
+st.set_page_config(page_title="Alldevice dīkstāves", layout="wide", initial_sidebar_state="expanded")
 
-# ---------- TĒMA / KRĀSAS ----------
-CUSTOM_BG = "#0E1117"
-CARD_BG = "#151A22"
-SIDEBAR_BG = "#11161F"
-GRID_COLOR = "rgba(255,255,255,0.05)"
+# ---------- TĒMA / KRĀSAS (Premium Neon & Glassmorphism) ----------
+CUSTOM_BG = "#04070b"  # Глубокий темный фон
+CARD_BG = "rgba(16, 22, 31, 0.65)" # Полупрозрачное стекло
+GRID_COLOR = "rgba(255,255,255,0.04)"
 BORDER_COLOR = "rgba(255,255,255,0.08)"
 TEXT_COLOR = "#F3F6FA"
-MUTED_TEXT = "#A9B4C2"
-ACCENT_1 = "#00E5FF"
-ACCENT_2 = "#FFB300"
+MUTED_TEXT = "#94A3B8"
+ACCENT_1 = "#00E5FF" # Неоновый голубой
+ACCENT_2 = "#FFB300" # Золотой/Янтарный
 ACCENT_SUCCESS = "#00E676"
 ACCENT_WARNING = "#FFC107"
-ACCENT_DANGER = "#FF5252"
+ACCENT_DANGER = "#FF4081" # Неоновый розово-красный
 
 ANALYSIS_MAX_HOURS = 240
-
 
 def apply_common_layout(fig, height=400):
     fig.update_layout(
         height=height,
-        plot_bgcolor=CARD_BG,
-        paper_bgcolor=CUSTOM_BG,
-        font=dict(color=TEXT_COLOR),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=TEXT_COLOR, family="'Outfit', sans-serif"),
         margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR,
-            zeroline=False
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor=GRID_COLOR,
-            zeroline=False
-        ),
-        legend=dict(
-            bgcolor="rgba(0,0,0,0)",
-            font=dict(color=TEXT_COLOR)
+        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
+        yaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=False),
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_COLOR)),
+        hovermode="x unified"
+    )
+    # Умные ховеры (тёмный дизайн тултипов)
+    fig.update_traces(
+        hoverlabel=dict(
+            bgcolor="rgba(10, 15, 22, 0.95)",
+            font_size=13,
+            font_family="'Outfit', sans-serif"
         )
     )
     return fig
 
-
-# ---------- CSS ----------
+# ---------- УЛЬТРА CSS ----------
 st.markdown(
     f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
+
+    /* Режим Full App: скрываем интерфейс Streamlit */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    [data-testid="stHeader"] {{display: none;}}
+
+    html, body, [class*="css"] {{
+        font-family: 'Outfit', sans-serif !important;
+    }}
+
+    /* Радиальный фон-свечение для всего приложения */
     .stApp {{
-        background-color: {CUSTOM_BG};
+        background-color: {CUSTOM_BG} !important;
+        background-image: 
+            radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.08), transparent 40%),
+            radial-gradient(circle at 85% 30%, rgba(255, 64, 129, 0.06), transparent 40%),
+            radial-gradient(circle at 50% 100%, rgba(255, 179, 0, 0.05), transparent 50%) !important;
+        background-attachment: fixed !important;
         color: {TEXT_COLOR};
     }}
 
     .block-container {{
         padding-top: 1.2rem;
         padding-bottom: 2rem;
-        max-width: 1500px;
+        max-width: 1550px;
     }}
 
+    /* Стеклянный сайдбар */
     [data-testid="stSidebar"] {{
-        background: {SIDEBAR_BG};
-        border-right: 1px solid {BORDER_COLOR};
+        background: rgba(10, 15, 22, 0.7) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255,255,255,0.05);
     }}
 
     [data-testid="stSidebar"] * {{
         color: {TEXT_COLOR} !important;
     }}
 
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] div {{
-        color: {TEXT_COLOR} !important;
-    }}
-
     /* multiselect - ārējais lauks */
     [data-testid="stSidebar"] [data-baseweb="select"] > div {{
-        background-color: #1A2330 !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
+        background-color: rgba(26,35,48,0.6) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         border-radius: 10px !important;
+        backdrop-filter: blur(10px);
     }}
 
     /* multiselect - izvēlētie tagi */
     [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="tag"] {{
-        background-color: #223041 !important;
-        border: 1px solid {BORDER_COLOR} !important;
-        color: {TEXT_COLOR} !important;
-    }}
-
-    [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="tag"] span {{
+        background-color: rgba(34,48,65,0.6) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         color: {TEXT_COLOR} !important;
     }}
 
     /* dropdown saraksts */
-    div[role="listbox"] {{
-        background-color: #1A2330 !important;
-        color: #F3F6FA !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
-    }}
-
-    div[role="option"] {{
+    div[role="listbox"], div[role="option"] {{
         background-color: #1A2330 !important;
         color: #F3F6FA !important;
     }}
@@ -115,23 +116,13 @@ st.markdown(
     }}
 
     /* date input */
-    [data-testid="stSidebar"] [data-testid="stDateInput"] {{
-        background-color: transparent !important;
-    }}
-
     [data-testid="stSidebar"] [data-testid="stDateInput"] input {{
-        background-color: #1A2330 !important;
+        background-color: rgba(26,35,48,0.6) !important;
         color: #F3F6FA !important;
-        -webkit-text-fill-color: #F3F6FA !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         border-radius: 8px !important;
         opacity: 1 !important;
         font-weight: 500 !important;
-    }}
-
-    [data-testid="stSidebar"] [data-testid="stDateInput"] svg {{
-        fill: #F3F6FA !important;
-        color: #F3F6FA !important;
     }}
 
     /* radio */
@@ -139,91 +130,116 @@ st.markdown(
         background: transparent !important;
     }}
 
+    /* Заголовки */
     .pro-title {{
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: {TEXT_COLOR};
+        font-size: 2.8rem;
+        font-weight: 900;
+        background: linear-gradient(90deg, #FFFFFF 0%, #00E5FF 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         margin-bottom: 0.2rem;
+        letter-spacing: -0.5px;
     }}
 
     .pro-subtitle {{
         color: {MUTED_TEXT};
-        font-size: 0.95rem;
-        margin-bottom: 1.2rem;
+        font-size: 1.05rem;
+        font-weight: 300;
+        margin-bottom: 1.8rem;
     }}
 
-    .kpi-card {{
-        background: linear-gradient(180deg, #171D26 0%, #121720 100%);
-        border: 1px solid {BORDER_COLOR};
-        border-radius: 18px;
-        padding: 18px 18px 14px 18px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
-        min-height: 110px;
+    /* Анимации появления */
+    @keyframes fadeUp {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* Карточки: Glassmorphism */
+    .kpi-card, .chart-card, .insight-card {{
+        background: {CARD_BG};
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(255,255,255,0.1);
+        border-left: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(0,0,0,0.5);
+        border-right: 1px solid rgba(0,0,0,0.5);
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: fadeUp 0.6s ease-out forwards;
+    }}
+
+    .kpi-card {{ padding: 22px 20px 18px 20px; min-height: 120px; margin-bottom: 14px;}}
+    .chart-card {{ padding: 18px; margin-bottom: 20px; }}
+    .insight-card {{ padding: 20px; margin-bottom: 20px; }}
+
+    /* Неоновый Hover эффект */
+    .kpi-card:hover, .chart-card:hover, .insight-card:hover {{
+        transform: translateY(-7px) scale(1.01);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.6), 
+                   0 0 20px rgba(0, 229, 255, 0.15);
+        border-top: 1px solid rgba(0, 229, 255, 0.3);
     }}
 
     .kpi-label {{
         color: {MUTED_TEXT};
-        font-size: 0.92rem;
-        margin-bottom: 0.35rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }}
 
     .kpi-value {{
-        color: {TEXT_COLOR};
-        font-size: 2rem;
-        font-weight: 800;
-        line-height: 1.1;
+        color: #fff;
+        font-size: 2.6rem;
+        font-weight: 900;
+        line-height: 1;
+        text-shadow: 0 0 20px rgba(255,255,255,0.2);
     }}
 
-    .chart-card {{
-        background: linear-gradient(180deg, #161C25 0%, #10151D 100%);
-        border: 1px solid {BORDER_COLOR};
-        border-radius: 18px;
-        padding: 14px 14px 6px 14px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
-        margin-bottom: 14px;
-    }}
-
-    .chart-title {{
-        color: {TEXT_COLOR};
-        font-size: 1.15rem;
+    .chart-title, .insight-title {{
+        color: #fff;
+        font-size: 1.25rem;
         font-weight: 700;
-        margin-bottom: 0.6rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
     }}
 
-    .insight-card {{
-        background: linear-gradient(180deg, #161C25 0%, #10151D 100%);
-        border: 1px solid {BORDER_COLOR};
-        border-radius: 18px;
-        padding: 16px 18px 10px 18px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
-        margin-top: 6px;
-        margin-bottom: 14px;
-    }}
-
-    .insight-title {{
-        color: {TEXT_COLOR};
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 0.6rem;
+    .chart-title::before, .insight-title::before {{
+        content: "";
+        display: inline-block;
+        width: 4px;
+        height: 18px;
+        background: {ACCENT_1};
+        margin-right: 10px;
+        border-radius: 4px;
+        box-shadow: 0 0 8px {ACCENT_1};
     }}
 
     .insight-list {{
         color: {TEXT_COLOR};
-        font-size: 0.98rem;
-        line-height: 1.8;
+        font-size: 1.05rem;
+        line-height: 1.9;
     }}
 
+    /* Тени для SVG графиков (Neon Glow) */
+    .js-plotly-plot .plotly .main-svg {{ filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.6)); }}
+    .js-plotly-plot .plotly .trace.bars path {{ filter: drop-shadow(2px 5px 6px rgba(0,0,0,0.4)); }}
+    .js-plotly-plot .plotly .pie path {{ filter: drop-shadow(4px 10px 10px rgba(0,0,0,0.5)); }}
+
     div[data-testid="stDataFrame"] {{
-        border: 1px solid {BORDER_COLOR};
-        border-radius: 16px;
-        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        background: transparent;
     }}
 
     hr {{
         border: none;
-        border-top: 1px solid {BORDER_COLOR};
-        margin-top: 1rem;
-        margin-bottom: 1rem;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        margin: 1.5rem 0;
     }}
     </style>
     """,
@@ -238,11 +254,19 @@ st.markdown(
 )
 
 # ---------- SECRETS ----------
-BASE_URL = st.secrets["BASE_URL"]
-TASKREPORTS_URL = st.secrets["TASKREPORTS_URL"]
-USERNAME = st.secrets["USERNAME"]
-PASSWORD = st.secrets["PASSWORD"]
-API_KEY = st.secrets["API_KEY"]
+try:
+    BASE_URL = st.secrets["BASE_URL"]
+    TASKREPORTS_URL = st.secrets["TASKREPORTS_URL"]
+    USERNAME = st.secrets["USERNAME"]
+    PASSWORD = st.secrets["PASSWORD"]
+    API_KEY = st.secrets["API_KEY"]
+except KeyError:
+    # Запасной вариант на случай тестов
+    BASE_URL = ""
+    TASKREPORTS_URL = ""
+    USERNAME = ""
+    PASSWORD = ""
+    API_KEY = ""
 
 payload = {
     "auth": {
@@ -272,17 +296,18 @@ def load_data():
     response.raise_for_status()
     return response.json()
 
-
 @st.cache_data(ttl=300)
 def load_taskreports():
     response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=10)
     response.raise_for_status()
     return response.json()
 
-
 try:
     with st.spinner("Ielādē datus..."):
-        data = load_data()
+        if BASE_URL:
+            data = load_data()
+        else:
+            data = {"success": False, "error": "Missing SECRETS"}
 except requests.exceptions.Timeout:
     st.error("Savienojuma noildze ar Alldevice API.")
     st.stop()
@@ -346,7 +371,6 @@ def extract_line(location: str) -> str:
             if keyword.upper() in location:
                 return line_name
     return "Cits"
-
 
 df["line"] = df["device_location"].apply(extract_line)
 
@@ -547,22 +571,14 @@ fig_mttr = None
 if not mttr_by_month.empty:
     fig_mttr = go.Figure()
     fig_mttr.add_trace(go.Scatter(
-        x=mttr_by_month["month"],
-        y=mttr_by_month["duration_hours"],
-        mode="lines",
-        line=dict(width=10, color="rgba(0,229,255,0.15)"),
-        hoverinfo="skip",
-        showlegend=False
+        x=mttr_by_month["month"], y=mttr_by_month["duration_hours"],
+        mode="lines", line=dict(width=10, color="rgba(0,229,255,0.15)"), hoverinfo="skip", showlegend=False
     ))
     fig_mttr.add_trace(go.Scatter(
-        x=mttr_by_month["month"],
-        y=mttr_by_month["duration_hours"],
-        mode="lines+markers",
-        line=dict(width=3, color=ACCENT_1),
-        marker=dict(size=7),
-        fill="tozeroy",
-        fillcolor="rgba(0,229,255,0.18)",
-        name="MTTR"
+        x=mttr_by_month["month"], y=mttr_by_month["duration_hours"],
+        mode="lines+markers", line=dict(width=4, color=ACCENT_1),
+        marker=dict(size=9, line=dict(width=2, color="#fff")),
+        fill="tozeroy", fillcolor="rgba(0,229,255,0.25)", name="MTTR"
     ))
     fig_mttr.update_layout(title="", yaxis_title="MTTR (stundas)", xaxis_title="Mēnesis")
     apply_common_layout(fig_mttr, height=360)
@@ -571,22 +587,14 @@ fig_mtbf = None
 if not mtbf_by_month.empty:
     fig_mtbf = go.Figure()
     fig_mtbf.add_trace(go.Scatter(
-        x=mtbf_by_month["month"],
-        y=mtbf_by_month["mtbf_hours"],
-        mode="lines",
-        line=dict(width=10, color="rgba(255,179,0,0.15)"),
-        hoverinfo="skip",
-        showlegend=False
+        x=mtbf_by_month["month"], y=mtbf_by_month["mtbf_hours"],
+        mode="lines", line=dict(width=10, color="rgba(255,179,0,0.15)"), hoverinfo="skip", showlegend=False
     ))
     fig_mtbf.add_trace(go.Scatter(
-        x=mtbf_by_month["month"],
-        y=mtbf_by_month["mtbf_hours"],
-        mode="lines+markers",
-        line=dict(width=3, color=ACCENT_2),
-        marker=dict(size=7),
-        fill="tozeroy",
-        fillcolor="rgba(255,179,0,0.18)",
-        name="MTBF"
+        x=mtbf_by_month["month"], y=mtbf_by_month["mtbf_hours"],
+        mode="lines+markers", line=dict(width=4, color=ACCENT_2),
+        marker=dict(size=9, line=dict(width=2, color="#fff")),
+        fill="tozeroy", fillcolor="rgba(255,179,0,0.25)", name="MTBF"
     ))
     fig_mtbf.update_layout(title="", yaxis_title="MTBF (stundas)", xaxis_title="Mēnesis")
     apply_common_layout(fig_mtbf, height=360)
@@ -594,95 +602,59 @@ if not mtbf_by_month.empty:
 fig_lines = None
 if not downtime_by_line.empty:
     fig_lines = px.bar(
-        downtime_by_line,
-        x="duration_hours",
-        y="line",
-        orientation="h",
-        text="duration_hours",
-        color="priority",
-        color_discrete_map={
-            "HIGH": ACCENT_DANGER,
-            "MEDIUM": ACCENT_WARNING,
-            "LOW": ACCENT_SUCCESS
-        },
+        downtime_by_line, x="duration_hours", y="line", orientation="h", text="duration_hours",
+        color="priority", color_discrete_map={"HIGH": ACCENT_DANGER, "MEDIUM": ACCENT_WARNING, "LOW": ACCENT_SUCCESS},
         labels={"duration_hours": "Stundas", "line": "Līnija", "priority": "Prioritāte"}
     )
-    fig_lines.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=1.5)
+    fig_lines.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
     apply_common_layout(fig_lines, height=430)
 
 fig_devices = None
 if not downtime_by_device.empty:
     fig_devices = px.bar(
-        downtime_by_device,
-        x="duration_hours",
-        y="device_name",
-        orientation="h",
-        text="duration_hours",
-        color="duration_hours",
-        color_continuous_scale="Tealgrn",
+        downtime_by_device, x="duration_hours", y="device_name", orientation="h",
+        text="duration_hours", color="duration_hours", color_continuous_scale="Tealgrn",
         labels={"duration_hours": "Stundas", "device_name": "Iekārta"}
     )
-    fig_devices.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=1.5)
+    fig_devices.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.95, marker=dict(cornerradius=4))
     fig_devices.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_devices, height=520)
 
 fig_cat = None
 if not type_hours.empty:
     fig_cat = px.pie(
-        type_hours,
-        names="type",
-        values="duration_hours",
-        hole=0.60,
-        color="type",
-        color_discrete_map={
-            "Plānots": ACCENT_SUCCESS,
-            "Avārija": ACCENT_DANGER
-        }
+        type_hours, names="type", values="duration_hours", hole=0.65,
+        color="type", color_discrete_map={"Plānots": ACCENT_SUCCESS, "Avārija": ACCENT_DANGER}
     )
-    fig_cat.update_traces(textinfo="percent+label", marker=dict(line=dict(color="#000000", width=1)))
+    fig_cat.update_traces(textinfo="percent+label", textfont=dict(size=14, color="#fff"), marker=dict(line=dict(color="#04070B", width=4)))
     apply_common_layout(fig_cat, height=430)
 
 fig_events = None
 if not events_by_month.empty:
     fig_events = px.bar(
-        events_by_month,
-        x="month",
-        y="events",
-        text="events",
+        events_by_month, x="month", y="events", text="events",
         labels={"month": "Mēnesis", "events": "Gadījumu skaits"}
     )
-    fig_events.update_traces(textposition="outside")
+    fig_events.update_traces(textposition="outside", marker_color=ACCENT_1, marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
     apply_common_layout(fig_events, height=380)
 
 fig_avg_line = None
 if not avg_downtime_by_line.empty:
     fig_avg_line = px.bar(
-        avg_downtime_by_line,
-        x="duration_hours",
-        y="line",
-        orientation="h",
-        text="duration_hours",
-        labels={"duration_hours": "Vidējās stundas", "line": "Līnija"}
+        avg_downtime_by_line, x="duration_hours", y="line", orientation="h",
+        text="duration_hours", labels={"duration_hours": "Vidējās stundas", "line": "Līnija"}
     )
-    fig_avg_line.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    fig_avg_line.update_traces(texttemplate="%{text:.2f}", textposition="outside", marker_color=ACCENT_2, marker_line_width=0, marker=dict(cornerradius=4))
     apply_common_layout(fig_avg_line, height=430)
 
 fig_cat_top = None
 if not downtime_by_category.empty:
     fig_cat_top = px.bar(
-        downtime_by_category,
-        x="duration_hours",
-        y="cat_name",
-        orientation="h",
-        text="duration_hours",
-        color="duration_hours",
-        color_continuous_scale="Reds",
-        labels={
-            "duration_hours": "Stundas",
-            "cat_name": "Cēlonis"
-        }
+        downtime_by_category, x="duration_hours", y="cat_name", orientation="h",
+        text="duration_hours", color="duration_hours", color_continuous_scale="Reds",
+        labels={"duration_hours": "Stundas", "cat_name": "Cēlonis"}
     )
-    fig_cat_top.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+    fig_cat_top.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
     fig_cat_top.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_cat_top, height=500)
 
@@ -702,7 +674,6 @@ if not df_analysis.empty:
         )
         .reset_index()
     )
-
     quality_by_line["missing_pct"] = (quality_by_line["missing"] / quality_by_line["total"]) * 100
     quality_by_line = quality_by_line.sort_values("missing_pct", ascending=False)
 else:
@@ -711,19 +682,11 @@ else:
 fig_quality = None
 if not quality_by_line.empty:
     fig_quality = px.bar(
-        quality_by_line.head(10),
-        x="missing_pct",
-        y="line",
-        orientation="h",
-        text="missing_pct",
-        color="missing_pct",
-        color_continuous_scale="Reds",
-        labels={
-            "missing_pct": "% bez cēloņa",
-            "line": "Līnija"
-        }
+        quality_by_line.head(10), x="missing_pct", y="line", orientation="h",
+        text="missing_pct", color="missing_pct", color_continuous_scale="Reds",
+        labels={"missing_pct": "% bez cēloņa", "line": "Līnija"}
     )
-    fig_quality.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig_quality.update_traces(texttemplate="%{text:.1f}%", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
     fig_quality.update_layout(coloraxis_showscale=False)
     apply_common_layout(fig_quality, height=500)
 
@@ -732,131 +695,82 @@ recommendations = []
 if not downtime_by_category.empty:
     for _, row in downtime_by_category.sort_values("duration_hours", ascending=False).head(5).iterrows():
         cause = str(row["cat_name"]).upper()
-
-        if "STOP" in cause:
-            recommendations.append(f"🔧 {row['cat_name']}: pārbaudīt sensorus un automātikas kļūdas")
-        elif "NAV NORĀDĪTS" in cause:
-            recommendations.append(f"⚠️ {row['cat_name']}: jāuzlabo datu ievade (tehniķiem jānorāda cēlonis)")
-        elif "PLĀNOTS" in cause:
-            recommendations.append(f"📅 {row['cat_name']}: optimizēt plānoto apkopju grafiku")
-        else:
-            recommendations.append(f"🛠 {row['cat_name']}: nepieciešama detalizēta analīze")
+        if "STOP" in cause: recommendations.append(f"🔧 {row['cat_name']}: pārbaudīt sensorus un automātikas kļūdas")
+        elif "NAV NORĀDĪTS" in cause: recommendations.append(f"⚠️ {row['cat_name']}: jāuzlabo datu ievade (tehniķiem jānorāda cēlonis)")
+        elif "PLĀNOTS" in cause: recommendations.append(f"📅 {row['cat_name']}: optimizēt plānoto apkopju grafiku")
+        else: recommendations.append(f"🛠 {row['cat_name']}: nepieciešama detalizēta analīze")
 
 # ---------- AUTOMĀTISKIE SECINĀJUMI ----------
 top_line = "-"
 top_device = "-"
-
 if not downtime_by_line.empty:
     top_line = downtime_by_line.sort_values("duration_hours", ascending=False).iloc[0]["line"]
-
 if not downtime_by_device.empty:
     top_device = downtime_by_device.sort_values("duration_hours", ascending=False).iloc[0]["device_name"]
 
 # ---------- LAPAS ----------
 if page == "📊 Dīkstāves analīze":
     if excluded_anomalies > 0:
-        st.info(
-            f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti "
-            f"(>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h."
-        )
+        st.info(f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti (>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h.")
 
     st.markdown('<div class="insight-card"><div class="insight-title">Datu kvalitāte</div>', unsafe_allow_html=True)
-    if missing_pct > 30:
-        st.error(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa (kritiska problēma)")
-    elif missing_pct > 10:
-        st.warning(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa")
-    else:
-        st.success(f"✅ Datu kvalitāte laba ({missing_pct:.1f}% bez cēloņa)")
+    if missing_pct > 30: st.error(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa (kritiska problēma)")
+    elif missing_pct > 10: st.warning(f"⚠️ {missing_pct:.1f}% ierakstu bez cēloņa")
+    else: st.success(f"✅ Datu kvalitāte laba ({missing_pct:.1f}% bez cēloņa)")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card"><div class="chart-title">Datu kvalitāte pa līnijām</div>', unsafe_allow_html=True)
-    if fig_quality is not None:
-        st.plotly_chart(fig_quality, use_container_width=True)
-    else:
-        st.info("Nav datu kvalitātes analīzei")
+    if fig_quality is not None: st.plotly_chart(fig_quality, use_container_width=True)
+    else: st.info("Nav datu kvalitātes analīzei")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="insight-card"><div class="insight-title">Ieteikumi darbībai</div>', unsafe_allow_html=True)
     if recommendations:
-        for r in recommendations:
-            st.markdown(f"- {r}")
-    else:
-        st.write("Nav pietiekamu datu rekomendācijām")
+        for r in recommendations: st.markdown(f"- {r}")
+    else: st.write("Nav pietiekamu datu rekomendācijām")
     st.markdown("</div>", unsafe_allow_html=True)
 
     k1, k2, k3, k4 = st.columns(4)
+    with k1: st.markdown(f'<div class="kpi-card"><div class="kpi-label">MTTR (stundas)</div><div class="kpi-value">{mttr:.2f}</div></div>', unsafe_allow_html=True)
+    with k2: st.markdown(f'<div class="kpi-card"><div class="kpi-label">MTBF (stundas)</div><div class="kpi-value">{mtbf:.2f}</div></div>', unsafe_allow_html=True)
+    with k3: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Kopējā dīkstāve</div><div class="kpi-value">{total_downtime_hours:.0f}</div></div>', unsafe_allow_html=True)
+    with k4: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>', unsafe_allow_html=True)
 
-    with k1:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">MTTR (stundas)</div><div class="kpi-value">{mttr:.2f}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k2:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">MTBF (stundas)</div><div class="kpi-value">{mtbf:.2f}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k3:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">Kopējā dīkstāve</div><div class="kpi-value">{total_downtime_hours:.0f}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k4:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">Dīkstāves gadījumi</div><div class="kpi-value">{total_events}</div></div>',
-            unsafe_allow_html=True
-        )
-
-    if mttr > 10:
-        st.error("⚠️ Augsts MTTR! Nepieciešama uzmanība — remonta laiks ir pārāk liels.")
-    elif mttr > 5:
-        st.warning("⚠️ MTTR virs normas.")
-    else:
-        st.success("✅ MTTR ir normas robežās.")
+    if mttr > 10: st.error("⚠️ Augsts MTTR! Nepieciešama uzmanība — remonta laiks ir pārāk liels.")
+    elif mttr > 5: st.warning("⚠️ MTTR virs normas.")
+    else: st.success("✅ MTTR ir normas robežās.")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
     r1c1, r1c2 = st.columns(2)
-
     with r1c1:
         st.markdown('<div class="chart-card"><div class="chart-title">MTTR pa mēnešiem</div>', unsafe_allow_html=True)
-        if fig_mttr is not None:
-            st.plotly_chart(fig_mttr, use_container_width=True)
-        else:
-            st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
+        if fig_mttr is not None: st.plotly_chart(fig_mttr, use_container_width=True)
+        else: st.info("Izvēlētajā periodā nav datu MTTR aprēķinam")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with r1c2:
         st.markdown('<div class="chart-card"><div class="chart-title">MTBF pa mēnešiem</div>', unsafe_allow_html=True)
-        if fig_mtbf is not None:
-            st.plotly_chart(fig_mtbf, use_container_width=True)
-        else:
-            st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
+        if fig_mtbf is not None: st.plotly_chart(fig_mtbf, use_container_width=True)
+        else: st.info("Izvēlētajā periodā nav datu MTBF aprēķinam")
         st.markdown("</div>", unsafe_allow_html=True)
 
     r2c1, r2c2 = st.columns(2)
-
     with r2c1:
         st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāve pa līnijām</div>', unsafe_allow_html=True)
-        if fig_lines is not None:
-            st.plotly_chart(fig_lines, use_container_width=True)
-        else:
-            st.info("Nav datu izvēlētajiem filtriem")
+        if fig_lines is not None: st.plotly_chart(fig_lines, use_container_width=True)
+        else: st.info("Nav datu izvēlētajiem filtriem")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with r2c2:
         st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves sadalījums: plānots / avārija</div>', unsafe_allow_html=True)
-        if fig_cat is not None:
-            st.plotly_chart(fig_cat, use_container_width=True)
-        else:
-            st.info("Nav datu kategoriju grafikam")
+        if fig_cat is not None: st.plotly_chart(fig_cat, use_container_width=True)
+        else: st.info("Nav datu kategoriju grafikam")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card"><div class="chart-title">Top 10 iekārtas pēc dīkstāves</div>', unsafe_allow_html=True)
-    if fig_devices is not None:
-        st.plotly_chart(fig_devices, use_container_width=True)
-    else:
-        st.info("Nav datu izvēlētajiem filtriem")
+    if fig_devices is not None: st.plotly_chart(fig_devices, use_container_width=True)
+    else: st.info("Nav datu izvēlētajiem filtriem")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="insight-card"><div class="insight-title">Automātiskie secinājumi</div>', unsafe_allow_html=True)
@@ -875,76 +789,38 @@ if page == "📊 Dīkstāves analīze":
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves dati (ar anomāliju atzīmi)</div>', unsafe_allow_html=True)
-    show_columns = [
-        "id",
-        "start_date",
-        "end_date",
-        "device_name",
-        "line",
-        "device_location",
-        "cat_name",
-        "type",
-        "comments",
-        "duration_hours",
-        "is_ended",
-        "is_anomaly"
-    ]
+    show_columns = ["id", "start_date", "end_date", "device_name", "line", "device_location", "cat_name", "type", "comments", "duration_hours", "is_ended", "is_anomaly"]
     existing_columns = [col for col in show_columns if col in df_filtered.columns]
     st.dataframe(df_filtered[existing_columns], use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "📈 Paplašināta analīze":
     if excluded_anomalies > 0:
-        st.info(
-            f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti "
-            f"(>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h."
-        )
+        st.info(f"Analītikā netiek iekļauti {excluded_anomalies} anomāli ieraksti (>{ANALYSIS_MAX_HOURS} h), kopā {excluded_anomaly_hours:.1f} h.")
 
     st.markdown('<div class="chart-card"><div class="chart-title">Paplašināta analīze</div>', unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        Šajā sadaļā tiek izmantoti tikai ieraksti līdz <b>{ANALYSIS_MAX_HOURS} h</b>,
-        lai anomāli lielas dīkstāves neizkropļotu rezultātus.
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown(f"Šajā sadaļā tiek izmantoti tikai ieraksti līdz <b>{ANALYSIS_MAX_HOURS} h</b>, lai anomāli lielas dīkstāves neizkropļotu rezultātus.", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
-
     with c1:
         st.markdown('<div class="chart-card"><div class="chart-title">Dīkstāves gadījumu skaits pa mēnešiem</div>', unsafe_allow_html=True)
-        if fig_events is not None:
-            st.plotly_chart(fig_events, use_container_width=True)
-        else:
-            st.info("Nav datu gadījumu skaita analīzei")
+        if fig_events is not None: st.plotly_chart(fig_events, use_container_width=True)
+        else: st.info("Nav datu gadījumu skaita analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with c2:
         st.markdown('<div class="chart-card"><div class="chart-title">Vidējā dīkstāve pa līnijām</div>', unsafe_allow_html=True)
-        if fig_avg_line is not None:
-            st.plotly_chart(fig_avg_line, use_container_width=True)
-        else:
-            st.info("Nav datu vidējās dīkstāves analīzei")
+        if fig_avg_line is not None: st.plotly_chart(fig_avg_line, use_container_width=True)
+        else: st.info("Nav datu vidējās dīkstāves analīzei")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="chart-card"><div class="chart-title">Top dīkstāves cēloņi</div>', unsafe_allow_html=True)
-    if fig_cat_top is not None:
-        st.plotly_chart(fig_cat_top, use_container_width=True)
-    else:
-        st.info("Nav datu cēloņu analīzei")
+    if fig_cat_top is not None: st.plotly_chart(fig_cat_top, use_container_width=True)
+    else: st.info("Nav datu cēloņu analīzei")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    line_summary = (
-        df_analysis.groupby("line", as_index=False)
-        .agg(
-            total_hours=("duration_hours", "sum"),
-            avg_hours=("duration_hours", "mean"),
-            events=("id", "count") if "id" in df_analysis.columns else ("duration_hours", "count")
-        )
-        .sort_values("total_hours", ascending=False)
-    )
-
+    line_summary = df_analysis.groupby("line", as_index=False).agg(total_hours=("duration_hours", "sum"), avg_hours=("duration_hours", "mean"), events=("id", "count") if "id" in df_analysis.columns else ("duration_hours", "count")).sort_values("total_hours", ascending=False)
     st.markdown('<div class="chart-card"><div class="chart-title">Kopsavilkums pa līnijām</div>', unsafe_allow_html=True)
     st.dataframe(line_summary, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -954,21 +830,12 @@ elif page == "🧾 Task reports":
 
     try:
         taskreports_data = load_taskreports()
-    except requests.exceptions.Timeout:
-        st.error("Savienojuma noildze ar Taskreports API.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.stop()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Taskreports API pieprasījuma kļūda: {e}")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.stop()
-    except ValueError:
-        st.error("Taskreports API atgrieza nekorektu JSON atbildi.")
+    except Exception as e:
+        st.error(f"Kļūda: {e}")
         st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
     response_obj = taskreports_data.get("response", {})
-
     if not isinstance(response_obj, dict):
         st.error("Taskreports API response formāts nav gaidītais.")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -983,243 +850,34 @@ elif page == "🧾 Task reports":
         st.stop()
 
     tr_df = pd.DataFrame(taskreports_rows)
-
-    # ---------- DATU SAGATAVOŠANA ----------
-    tr_df["total_time_seconds"] = pd.to_numeric(
-        tr_df.get("total_time_seconds"), errors="coerce"
-    ).fillna(0)
-
+    tr_df["total_time_seconds"] = pd.to_numeric(tr_df.get("total_time_seconds"), errors="coerce").fillna(0)
     tr_df["total_hours"] = tr_df["total_time_seconds"] / 3600
-
     tr_df["service_name"] = tr_df.get("service_name", "").fillna("Nav norādīts")
     tr_df["device_name"] = tr_df.get("device_name", "").fillna("Nav norādīts")
     tr_df["device_location"] = tr_df.get("device_location", "").fillna("Nav norādīts")
     tr_df["user_name_list"] = tr_df.get("user_name_list", "").fillna("Nav norādīts")
     tr_df["report_nr"] = tr_df.get("report_nr", "").fillna("Nav norādīts")
 
-    # ---------- KPI ----------
     total_reports = len(tr_df)
     total_hours = tr_df["total_hours"].sum()
     avg_report_hours = tr_df["total_hours"].mean() if total_reports > 0 else 0
 
     k1, k2, k3, k4 = st.columns(4)
-
-    with k1:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">Saņemtie reporti</div><div class="kpi-value">{total_reports}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k2:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">API kopējais reportu skaits</div><div class="kpi-value">{total_reports_api}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k3:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">Kopējās darba stundas</div><div class="kpi-value">{total_hours:.1f}</div></div>',
-            unsafe_allow_html=True
-        )
-    with k4:
-        st.markdown(
-            f'<div class="kpi-card"><div class="kpi-label">Vidēji stundas uz reportu</div><div class="kpi-value">{avg_report_hours:.2f}</div></div>',
-            unsafe_allow_html=True
-        )
-
+    with k1: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Saņemtie reporti</div><div class="kpi-value">{total_reports}</div></div>', unsafe_allow_html=True)
+    with k2: st.markdown(f'<div class="kpi-card"><div class="kpi-label">API kopējais reportu skaits</div><div class="kpi-value">{total_reports_api}</div></div>', unsafe_allow_html=True)
+    with k3: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Kopējās darba stundas</div><div class="kpi-value">{total_hours:.1f}</div></div>', unsafe_allow_html=True)
+    with k4: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Vidēji stundas uz reportu</div><div class="kpi-value">{avg_report_hours:.2f}</div></div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------- TOP TEHNIĶI ----------
-    tech_hours = (
-        tr_df.groupby("user_name_list", as_index=False)["total_hours"]
-        .sum()
-        .sort_values("total_hours", ascending=False)
-        .head(10)
-        .sort_values("total_hours", ascending=True)
-    )
-
+    tech_hours = tr_df.groupby("user_name_list", as_index=False)["total_hours"].sum().sort_values("total_hours", ascending=False).head(10).sort_values("total_hours", ascending=True)
     fig_tech = None
     if not tech_hours.empty:
-        fig_tech = px.bar(
-            tech_hours,
-            x="total_hours",
-            y="user_name_list",
-            orientation="h",
-            text="total_hours",
-            color="total_hours",
-            color_continuous_scale="Blues",
-            labels={
-                "total_hours": "Stundas",
-                "user_name_list": "Tehniķis"
-            }
-        )
-        fig_tech.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig_tech = px.bar(tech_hours, x="total_hours", y="user_name_list", orientation="h", text="total_hours", color="total_hours", color_continuous_scale="Blues", labels={"total_hours": "Stundas", "user_name_list": "Tehniķis"})
+        fig_tech.update_traces(texttemplate="%{text:.1f}", textposition="outside", marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
         fig_tech.update_layout(coloraxis_showscale=False)
         apply_common_layout(fig_tech, height=500)
 
-    # ---------- TOP DARBI ----------
-    service_hours = (
-        tr_df.groupby("service_name", as_index=False)["total_hours"]
-        .sum()
-        .sort_values("total_hours", ascending=False)
-        .head(10)
-        .sort_values("total_hours", ascending=True)
-    )
-
+    service_hours = tr_df.groupby("service_name", as_index=False)["total_hours"].sum().sort_values("total_hours", ascending=False).head(10).sort_values("total_hours", ascending=True)
     fig_service = None
     if not service_hours.empty:
-        fig_service = px.bar(
-            service_hours,
-            x="total_hours",
-            y="service_name",
-            orientation="h",
-            text="total_hours",
-            color="total_hours",
-            color_continuous_scale="Tealgrn",
-            labels={
-                "total_hours": "Stundas",
-                "service_name": "Darbs"
-            }
-        )
-        fig_service.update_traces(texttemplate="%{text:.1f}", textposition="outside")
-        fig_service.update_layout(coloraxis_showscale=False)
-        apply_common_layout(fig_service, height=500)
-
-    # ---------- STUNDAS PA LĪNIJĀM ----------
-    tr_df["report_line"] = tr_df["device_location"].apply(extract_line)
-
-    hours_by_line = (
-        tr_df.groupby("report_line", as_index=False)["total_hours"]
-        .sum()
-        .sort_values("total_hours", ascending=False)
-        .head(10)
-        .sort_values("total_hours", ascending=True)
-    )
-
-    fig_line_hours = None
-    if not hours_by_line.empty:
-        fig_line_hours = px.bar(
-            hours_by_line,
-            x="total_hours",
-            y="report_line",
-            orientation="h",
-            text="total_hours",
-            color="total_hours",
-            color_continuous_scale="Oranges",
-            labels={
-                "total_hours": "Stundas",
-                "report_line": "Līnija"
-            }
-        )
-        fig_line_hours.update_traces(texttemplate="%{text:.1f}", textposition="outside")
-        fig_line_hours.update_layout(coloraxis_showscale=False)
-        apply_common_layout(fig_line_hours, height=520)
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown('<div class="chart-card"><div class="chart-title">Top tehniķi pēc darba stundām</div>', unsafe_allow_html=True)
-        if fig_tech is not None:
-            st.plotly_chart(fig_tech, use_container_width=True)
-        else:
-            st.info("Nav datu tehniķu analīzei")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c2:
-        st.markdown('<div class="chart-card"><div class="chart-title">Top darbi pēc darba stundām</div>', unsafe_allow_html=True)
-        if fig_service is not None:
-            st.plotly_chart(fig_service, use_container_width=True)
-        else:
-            st.info("Nav datu darbu analīzei")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="chart-card"><div class="chart-title">Darba stundas pa līnijām</div>', unsafe_allow_html=True)
-    if fig_line_hours is not None:
-        st.plotly_chart(fig_line_hours, use_container_width=True)
-    else:
-        st.info("Nav datu līniju analīzei")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ---------- TABULA ----------
-    st.markdown('<div class="chart-card"><div class="chart-title">Task reports dati</div>', unsafe_allow_html=True)
-
-    show_cols = [
-        "report_id",
-        "report_nr",
-        "service_name",
-        "device_name",
-        "report_line",
-        "device_location",
-        "user_name_list",
-        "total_time",
-        "total_time_seconds",
-        "total_hours"
-    ]
-    existing_cols = [c for c in show_cols if c in tr_df.columns]
-
-    st.dataframe(tr_df[existing_cols], use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-elif page == "🛠 API debug":
-    st.markdown('<div class="chart-card"><div class="chart-title">API debug</div>', unsafe_allow_html=True)
-
-    debug_info = {
-        "BASE_URL": BASE_URL,
-        "TASKREPORTS_URL": TASKREPORTS_URL,
-        "ROWS_FROM_API": len(rows),
-        "FILTERED_ROWS_RAW": len(df_filtered),
-        "FILTERED_ROWS_ANALYSIS": len(df_analysis),
-        "EXCLUDED_ANOMALIES": excluded_anomalies,
-        "EXCLUDED_ANOMALY_HOURS": round(excluded_anomaly_hours, 2),
-        "ANALYSIS_MAX_HOURS": ANALYSIS_MAX_HOURS,
-        "DATE_START_FILTER": str(start_filter),
-        "DATE_END_FILTER": str(end_filter),
-        "SELECTED_LINES_COUNT": len(selected_lines),
-        "SUCCESS_FLAG": data.get("success"),
-    }
-
-    st.json(debug_info)
-
-    st.markdown("### Payload preview")
-    st.json({
-        "auth": {
-            "username": USERNAME,
-            "password": "***",
-            "key": "***"
-        },
-        "date_start": payload["date_start"],
-        "date_end": payload["date_end"]
-    })
-
-    st.markdown("### Taskreports payload preview")
-    st.json({
-        "auth": {
-            "username": USERNAME,
-            "password": "***",
-            "key": "***"
-        },
-        "date_start": taskreports_payload["date_start"],
-        "date_end": taskreports_payload["date_end"],
-        "date_type": taskreports_payload["date_type"]
-    })
-
-    st.markdown("### Pieejamās kolonnas")
-    st.write(df.columns.tolist())
-
-    st.markdown("### Pirmās 5 rindas (raw)")
-    st.dataframe(df.head(5), use_container_width=True)
-
-    st.markdown("### Anomāli lielie ieraksti")
-    anomaly_view = df_filtered[df_filtered["is_anomaly"]].copy() if "is_anomaly" in df_filtered.columns else pd.DataFrame()
-    if not anomaly_view.empty:
-        st.dataframe(
-            anomaly_view[[
-                col for col in [
-                    "id", "start_date", "end_date", "device_name",
-                    "line", "cat_name", "duration_hours", "comments"
-                ] if col in anomaly_view.columns
-            ]],
-            use_container_width=True
-        )
-    else:
-        st.success("Anomāli lielu dīkstāves ierakstu izvēlētajā periodā nav.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        fig_service = px.bar(service_hours, x="total_hours", y="service
