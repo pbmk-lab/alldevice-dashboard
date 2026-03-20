@@ -376,9 +376,7 @@ df["line"] = df["device_location"].apply(extract_line)
 # ---------- FILTRI ----------
 st.sidebar.markdown("## Filtri")
 
-ordered_lines = [line for line in LINE_MAPPING.keys() if line in df["line"].unique()]
-if "Cits" in df["line"].unique():
-    ordered_lines.append("Cits")
+ordered_lines = list(LINE_MAPPING.keys()) + ["Cits"]
 
 selected_lines = st.sidebar.multiselect(
     "Izvēlies līnijas",
