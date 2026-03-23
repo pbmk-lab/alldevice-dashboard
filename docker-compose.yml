@@ -1,0 +1,18 @@
+services:
+  alldevice-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      ALLDEVICE_BASE_URL: ${ALLDEVICE_BASE_URL}
+      ALLDEVICE_TASKREPORTS_URL: ${ALLDEVICE_TASKREPORTS_URL}
+      ALLDEVICE_USERNAME: ${ALLDEVICE_USERNAME}
+      ALLDEVICE_PASSWORD: ${ALLDEVICE_PASSWORD}
+      ALLDEVICE_API_KEY: ${ALLDEVICE_API_KEY}
+      DEFAULT_DATE_START: ${DEFAULT_DATE_START:-2023-01-01}
+      DEFAULT_DATE_END: ${DEFAULT_DATE_END:-2026-12-31}
+      TASKREPORTS_DATE_TYPE: ${TASKREPORTS_DATE_TYPE:-completed_date}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-lv}
+    restart: unless-stopped
