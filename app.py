@@ -274,7 +274,7 @@ payload = {
         "key": API_KEY
     },
     "date_start": "2023-01-01",
-    "date_end": "2026-12-31"
+    "date_end": "2024-12-31"
 }
 
 taskreports_payload = {
@@ -284,7 +284,7 @@ taskreports_payload = {
         "key": API_KEY
     },
     "date_start": "2023-01-01",
-    "date_end": "2026-12-31",
+    "date_end": "2024-12-31",
     "date_type": "completed_date"
 }
 
