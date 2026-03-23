@@ -274,7 +274,7 @@ payload = {
         "key": API_KEY
     },
     "date_start": "2023-01-01",
-    "date_end": "2024-12-31"
+    "date_end": "2026-12-31"
 }
 
 taskreports_payload = {
@@ -284,20 +284,20 @@ taskreports_payload = {
         "key": API_KEY
     },
     "date_start": "2023-01-01",
-    "date_end": "2024-12-31",
+    "date_end": "2026-12-31",
     "date_type": "completed_date"
 }
 
 # ---------- API ----------
 @st.cache_data(ttl=300)
 def load_data():
-    response = requests.post(BASE_URL, json=payload, timeout=90)
+    response = requests.post(BASE_URL, json=payload, timeout=10)
     response.raise_for_status()
     return response.json()
 
 @st.cache_data(ttl=300)
 def load_taskreports():
-    response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=90)
+    response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=10)
     response.raise_for_status()
     return response.json()
 
@@ -376,6 +376,9 @@ df["line"] = df["device_location"].apply(extract_line)
 # ---------- FILTRI ----------
 st.sidebar.markdown("## Filtri")
 
+ordered_lines = [line for line in LINE_MAPPING.keys() if line in df["line"].unique()]
+if "Cits" in df["line"].unique():
+    ordered_lines.append("Cits")
 ordered_lines = list(LINE_MAPPING.keys()) + ["Cits"]
 
 selected_lines = st.sidebar.multiselect(
