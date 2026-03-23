@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 import os
 import tomllib
+from urllib.parse import urljoin
 
 
 class ConfigError(RuntimeError):
@@ -17,12 +18,17 @@ SECRETS_PATHS = [
     REPO_ROOT.parent / ".streamlit" / "secrets.toml",
 ]
 UPSTREAM_ENV_ALIASES: dict[str, tuple[str, ...]] = {
+    "API_BASE_URL": ("ALLDEVICE_API_BASE_URL", "API_BASE_URL"),
     "BASE_URL": ("ALLDEVICE_BASE_URL", "BASE_URL"),
     "TASKREPORTS_URL": ("ALLDEVICE_TASKREPORTS_URL", "TASKREPORTS_URL"),
+    "DOWNTIME_PATH": ("ALLDEVICE_DOWNTIME_PATH", "DOWNTIME_PATH"),
+    "TASKREPORTS_PATH": ("ALLDEVICE_TASKREPORTS_PATH", "TASKREPORTS_PATH"),
     "USERNAME": ("ALLDEVICE_USERNAME", "USERNAME"),
     "PASSWORD": ("ALLDEVICE_PASSWORD", "PASSWORD"),
     "API_KEY": ("ALLDEVICE_API_KEY", "API_KEY"),
 }
+DEFAULT_DOWNTIME_PATH = "/api/downtimes/list"
+DEFAULT_TASKREPORTS_PATH = "/api/taskreports/list"
 
 
 def _read_secret_file() -> dict[str, str]:
@@ -45,6 +51,12 @@ def _read_upstream_value(secret_file: dict[str, str], name: str, default: str = 
             return value
 
     return default
+
+
+def _join_api_url(base_url: str, path: str) -> str:
+    if not base_url:
+        return ""
+    return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
 @dataclass(frozen=True)
@@ -86,9 +98,24 @@ def get_settings() -> Settings:
     def read_value(name: str, default: str = "") -> str:
         return os.getenv(name, secret_file.get(name, default))
 
+    api_base_url = _read_upstream_value(secret_file, "API_BASE_URL")
+    downtime_path = _read_upstream_value(
+        secret_file, "DOWNTIME_PATH", DEFAULT_DOWNTIME_PATH
+    )
+    taskreports_path = _read_upstream_value(
+        secret_file, "TASKREPORTS_PATH", DEFAULT_TASKREPORTS_PATH
+    )
+    downtime_url = _read_upstream_value(secret_file, "BASE_URL")
+    taskreports_url = _read_upstream_value(secret_file, "TASKREPORTS_URL")
+
+    if not downtime_url and api_base_url:
+        downtime_url = _join_api_url(api_base_url, downtime_path)
+    if not taskreports_url and api_base_url:
+        taskreports_url = _join_api_url(api_base_url, taskreports_path)
+
     return Settings(
-        base_url=_read_upstream_value(secret_file, "BASE_URL"),
-        taskreports_url=_read_upstream_value(secret_file, "TASKREPORTS_URL"),
+        base_url=downtime_url,
+        taskreports_url=taskreports_url,
         username=_read_upstream_value(secret_file, "USERNAME"),
         password=_read_upstream_value(secret_file, "PASSWORD"),
         api_key=_read_upstream_value(secret_file, "API_KEY"),

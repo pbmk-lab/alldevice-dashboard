@@ -46,7 +46,24 @@ streamlit run app.py
 
 ## Configuration
 
-The rebuild preserves the legacy secret names:
+For deployment, the preferred setup is a single API host:
+
+- `ALLDEVICE_API_BASE_URL`
+- `ALLDEVICE_USERNAME`
+- `ALLDEVICE_PASSWORD`
+- `ALLDEVICE_API_KEY`
+
+Optional endpoint overrides:
+
+- `ALLDEVICE_DOWNTIME_PATH`
+- `ALLDEVICE_TASKREPORTS_PATH`
+
+Default endpoint paths are:
+
+- `/api/downtimes/list`
+- `/api/taskreports/list`
+
+Legacy configuration is still supported for backward compatibility:
 
 - `BASE_URL`
 - `TASKREPORTS_URL`
@@ -54,15 +71,7 @@ The rebuild preserves the legacy secret names:
 - `PASSWORD`
 - `API_KEY`
 
-They can be supplied through environment variables or `.streamlit/secrets.toml`.
-
-For container/server deployment, prefer these environment variable aliases:
-
-- `ALLDEVICE_BASE_URL`
-- `ALLDEVICE_TASKREPORTS_URL`
-- `ALLDEVICE_USERNAME`
-- `ALLDEVICE_PASSWORD`
-- `ALLDEVICE_API_KEY`
+Configuration can still be supplied through environment variables or `.streamlit/secrets.toml`.
 
 Optional non-secret runtime settings:
 
@@ -87,11 +96,12 @@ The app will be available at:
 Example `.env` values for Compose:
 
 ```env
-ALLDEVICE_BASE_URL=https://example/api/downtime
-ALLDEVICE_TASKREPORTS_URL=https://example/api/taskreports
+ALLDEVICE_API_BASE_URL=https://example
 ALLDEVICE_USERNAME=your-user
 ALLDEVICE_PASSWORD=your-password
 ALLDEVICE_API_KEY=your-api-key
+ALLDEVICE_DOWNTIME_PATH=/api/downtimes/list
+ALLDEVICE_TASKREPORTS_PATH=/api/taskreports/list
 DEFAULT_DATE_START=2023-01-01
 DEFAULT_DATE_END=2026-12-31
 TASKREPORTS_DATE_TYPE=completed_date
@@ -113,14 +123,15 @@ Recommended Coolify setup:
 
 Set these environment variables in Coolify:
 
-- `ALLDEVICE_BASE_URL`
-- `ALLDEVICE_TASKREPORTS_URL`
+- `ALLDEVICE_API_BASE_URL`
 - `ALLDEVICE_USERNAME`
 - `ALLDEVICE_PASSWORD`
 - `ALLDEVICE_API_KEY`
 
 Optional:
 
+- `ALLDEVICE_DOWNTIME_PATH`
+- `ALLDEVICE_TASKREPORTS_PATH`
 - `DEFAULT_DATE_START`
 - `DEFAULT_DATE_END`
 - `TASKREPORTS_DATE_TYPE`
