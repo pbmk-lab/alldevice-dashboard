@@ -291,13 +291,13 @@ taskreports_payload = {
 # ---------- API ----------
 @st.cache_data(ttl=300)
 def load_data():
-    response = requests.post(BASE_URL, json=payload, timeout=10)
+    response = requests.post(BASE_URL, json=payload, timeout=30)
     response.raise_for_status()
     return response.json()
 
 @st.cache_data(ttl=300)
 def load_taskreports():
-    response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=10)
+    response = requests.post(TASKREPORTS_URL, json=taskreports_payload, timeout=30)
     response.raise_for_status()
     return response.json()
 
