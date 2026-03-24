@@ -27,3 +27,13 @@ In progress.
 - current roadmap is complete
 - if we extend scope, start a new milestone or add a new roadmap phase
 - optional next improvements: frontend tests, deeper chart bundle trimming, production deployment docs
+
+## Accumulated Context
+
+### Pending Todos
+
+- 4 pending todos captured in `.planning/todos/pending`
+- Coolify deployment verification
+- frontend and e2e test coverage
+- Plotly bundle optimization
+- legacy Streamlit fallback retirement
