@@ -58,6 +58,27 @@ export type WorkReportsResponse = {
   line_hours: NamedMetric[];
   raw_rows: Record<string, unknown>[];
 };
+export type TechnicianWorkRow = {
+  technician_name: string;
+  report_nr: string;
+  service_name: string;
+  device_name: string;
+  line: string;
+  report_date?: string | null;
+  allocated_hours: number;
+  source_total_hours: number;
+};
+export type TechniciansResponse = {
+  locale: Locale;
+  kpis: KpiMetric[];
+  selected_technician?: string | null;
+  technician_hours: NamedMetric[];
+  technician_reports: NamedMetric[];
+  service_breakdown: NamedMetric[];
+  device_breakdown: NamedMetric[];
+  line_breakdown: NamedMetric[];
+  rows: TechnicianWorkRow[];
+};
 export type DataQualityResponse = {
   locale: Locale;
   missing_category_pct: number;
@@ -172,7 +193,7 @@ function toQuery(params: Record<string, string | string[] | undefined>) {
   return search.toString();
 }
 
-async function getJson<T>(path: string, filters?: Partial<FiltersState> & { line?: string }) {
+async function getJson<T>(path: string, filters?: Partial<FiltersState> & { line?: string; technician?: string }) {
   const query = filters
     ? toQuery({
         locale: filters.locale,
@@ -180,6 +201,7 @@ async function getJson<T>(path: string, filters?: Partial<FiltersState> & { line
         date_end: filters.dateEnd,
         lines: filters.lines,
         line: filters.line,
+        technician: filters.technician,
       })
     : "";
   const response = await fetch(`/api/${path}${query ? `?${query}` : ""}`);
@@ -197,6 +219,8 @@ export const api = {
   devices: (filters: FiltersState, line?: string) =>
     getJson<DevicesResponse>("devices", { ...filters, line }),
   workReports: (filters: FiltersState) => getJson<WorkReportsResponse>("work-reports", filters),
+  technicians: (filters: FiltersState, technician?: string) =>
+    getJson<TechniciansResponse>("technicians", { ...filters, technician }),
   dataQuality: (filters: FiltersState) => getJson<DataQualityResponse>("data-quality", filters),
   debug: (filters: FiltersState) => getJson<DebugResponse>("debug/upstream", filters),
   operationsWindow: (filters: FiltersState) =>

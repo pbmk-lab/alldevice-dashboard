@@ -15,6 +15,7 @@ from backend.app.domain.models import (
     Locale,
     OperationsWindowResponse,
     OverviewResponse,
+    TechniciansResponse,
     TaskBoardResponse,
     TriageResponse,
     WorkReportsResponse,
@@ -30,6 +31,7 @@ from backend.app.services.downtime_service import (
     normalize_downtime_rows,
 )
 from backend.app.services.task_reports_service import (
+    build_technicians_payload,
     build_work_reports_payload,
     filter_task_reports,
     normalize_task_report_rows,
@@ -169,6 +171,20 @@ class DecisionService:
         df = normalize_task_report_rows(rows)
         filtered = filter_task_reports(df, lines, date_start, date_end)
         return build_work_reports_payload(locale, filtered, total_reports_api)
+
+    async def get_technicians(
+        self,
+        locale: Locale,
+        date_start: date,
+        date_end: date,
+        lines: list[str] | None,
+        technician: str | None,
+    ) -> TechniciansResponse:
+        response = await self.client.fetch_task_reports(str(date_start), str(date_end))
+        rows, _ = self._extract_task_reports_payload(response)
+        df = normalize_task_report_rows(rows)
+        filtered = filter_task_reports(df, lines, date_start, date_end)
+        return build_technicians_payload(locale, filtered, technician)
 
     async def get_task_board(
         self,

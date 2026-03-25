@@ -106,6 +106,29 @@ class WorkReportsResponse(BaseModel):
     raw_rows: list[dict[str, Any]]
 
 
+class TechnicianWorkRow(BaseModel):
+    technician_name: str
+    report_nr: str
+    service_name: str
+    device_name: str
+    line: str
+    report_date: str | None = None
+    allocated_hours: float
+    source_total_hours: float
+
+
+class TechniciansResponse(BaseModel):
+    locale: Locale
+    kpis: list[KpiMetric]
+    selected_technician: str | None = None
+    technician_hours: list[NamedMetric]
+    technician_reports: list[NamedMetric]
+    service_breakdown: list[NamedMetric]
+    device_breakdown: list[NamedMetric]
+    line_breakdown: list[NamedMetric]
+    rows: list[TechnicianWorkRow]
+
+
 class DataQualityResponse(BaseModel):
     locale: Locale
     missing_category_pct: float

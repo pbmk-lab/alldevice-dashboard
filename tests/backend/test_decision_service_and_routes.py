@@ -45,6 +45,24 @@ class StubClient:
     async def fetch_downtime(self, date_start: str, date_end: str) -> dict:
         return SAMPLE_DOWNTIME_RESPONSE
 
+    async def fetch_devices_inventory(self) -> dict:
+        return {
+            "success": True,
+            "response": {
+                "data": [
+                    {
+                        "device_id": 1,
+                        "device_name": "Press A",
+                        "device_status": "normal",
+                        "next_task_date": "",
+                        "description": "",
+                        "comments": "",
+                        "objects_path": "/0/100/200/300",
+                    }
+                ]
+            },
+        }
+
     async def fetch_task_reports(self, date_start: str, date_end: str) -> dict:
         return {
             "success": True,
@@ -96,6 +114,9 @@ def test_decision_service_rejects_failed_downtime_response() -> None:
     class FailingStubClient:
         async def fetch_downtime(self, date_start: str, date_end: str) -> dict:
             return {"success": False, "response": []}
+
+        async def fetch_devices_inventory(self) -> dict:
+            return {"success": True, "response": {"data": []}}
 
         async def fetch_task_reports(self, date_start: str, date_end: str) -> dict:
             return {"response": {"total": 0, "data": []}}
@@ -201,12 +222,36 @@ def test_costs_route_uses_dependency_override() -> None:
     assert "monthly_total_costs" in body
 
 
+def test_technicians_route_uses_dependency_override() -> None:
+    service = DecisionService(build_settings())
+    service.client = StubClient()
+    app.dependency_overrides[get_decision_service] = lambda: service
+
+    try:
+        client = TestClient(app)
+        response = client.get(
+            "/api/technicians",
+            params={"date_start": "2025-01-01", "date_end": "2025-01-31", "locale": "lv"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["technician_hours"][0]["name"] == "Tech A"
+    assert body["selected_technician"] == "Tech A"
+    assert body["rows"][0]["service_name"] == "Inspection"
+
+
 def test_bad_task_report_shape_returns_502() -> None:
     service = DecisionService(build_settings())
 
     class BadTaskReportClient:
         async def fetch_downtime(self, date_start: str, date_end: str) -> dict:
             return SAMPLE_DOWNTIME_RESPONSE
+
+        async def fetch_devices_inventory(self) -> dict:
+            return {"success": True, "response": {"data": []}}
 
         async def fetch_task_reports(self, date_start: str, date_end: str) -> dict:
             return {"success": True, "response": []}
@@ -234,6 +279,9 @@ def test_unauthorized_task_reports_returns_502() -> None:
         async def fetch_downtime(self, date_start: str, date_end: str) -> dict:
             return SAMPLE_DOWNTIME_RESPONSE
 
+        async def fetch_devices_inventory(self) -> dict:
+            return {"success": True, "response": {"data": []}}
+
         async def fetch_task_reports(self, date_start: str, date_end: str) -> dict:
             return {"success": False, "message": "Unauthorized"}
 
@@ -259,6 +307,9 @@ def test_debug_route_marks_failed_task_reports_as_not_ok() -> None:
     class UnauthorizedBothClient:
         async def fetch_downtime(self, date_start: str, date_end: str) -> dict:
             return {"success": False, "message": "Unauthorized"}
+
+        async def fetch_devices_inventory(self) -> dict:
+            return {"success": True, "response": {"data": []}}
 
         async def fetch_task_reports(self, date_start: str, date_end: str) -> dict:
             return {"success": False, "message": "Unauthorized", "response": {}}

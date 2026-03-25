@@ -12,6 +12,7 @@ const navItems = [
   { to: "/triage", key: "triage" as const },
   { to: "/devices", key: "devices" as const },
   { to: "/work-reports", key: "workReports" as const },
+  { to: "/technicians", key: "technicians" as const },
   { to: "/tasks", key: "tasks" as const },
   { to: "/costs", key: "costs" as const },
   { to: "/data-quality", key: "dataQuality" as const },

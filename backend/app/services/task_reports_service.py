@@ -5,7 +5,14 @@ from datetime import date
 import pandas as pd
 
 from backend.app.domain.line_mapping import extract_line, ordered_lines
-from backend.app.domain.models import KpiMetric, Locale, NamedMetric, WorkReportsResponse
+from backend.app.domain.models import (
+    KpiMetric,
+    Locale,
+    NamedMetric,
+    TechniciansResponse,
+    TechnicianWorkRow,
+    WorkReportsResponse,
+)
 
 
 def normalize_task_report_rows(rows: list[dict]) -> pd.DataFrame:
@@ -46,6 +53,55 @@ def normalize_task_report_rows(rows: list[dict]) -> pd.DataFrame:
         df["report_date"] = pd.NaT
     df["report_date"] = df["report_date"].dt.tz_localize(None)
     return df
+
+
+def _split_technicians(raw_value: str) -> list[str]:
+    text = str(raw_value or "").strip()
+    if not text or text == "Nav norādīts":
+        return ["Nav norādīts"]
+
+    separators = [";", "\n", "|"]
+    for separator in separators:
+        text = text.replace(separator, ",")
+
+    items = [part.strip() for part in text.split(",")]
+    normalized = [item for item in items if item]
+    return normalized or ["Nav norādīts"]
+
+
+def expand_task_reports_by_technician(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    expanded_rows: list[dict] = []
+    for _, row in df.iterrows():
+        technicians = _split_technicians(str(row.get("user_name_list", "")))
+        share = float(row.get("total_hours", 0) or 0) / max(len(technicians), 1)
+
+        for technician in technicians:
+            expanded_rows.append(
+                {
+                    "technician_name": technician,
+                    "report_id": row.get("report_id"),
+                    "report_nr": row.get("report_nr", "Nav norādīts"),
+                    "service_name": row.get("service_name", "Nav norādīts"),
+                    "device_name": row.get("device_name", "Nav norādīts"),
+                    "line": row.get("report_line", "Nav norādīts"),
+                    "report_date": row.get("report_date"),
+                    "allocated_hours": share,
+                    "source_total_hours": float(row.get("total_hours", 0) or 0),
+                }
+            )
+
+    expanded = pd.DataFrame(expanded_rows)
+    if expanded.empty:
+        return expanded
+
+    expanded["allocated_hours"] = pd.to_numeric(expanded["allocated_hours"], errors="coerce").fillna(0)
+    expanded["source_total_hours"] = pd.to_numeric(expanded["source_total_hours"], errors="coerce").fillna(0)
+    expanded["report_date"] = pd.to_datetime(expanded.get("report_date"), errors="coerce")
+    expanded["report_date"] = expanded["report_date"].dt.tz_localize(None)
+    return expanded
 
 
 def filter_task_reports(
@@ -140,4 +196,117 @@ def build_work_reports_payload(
             for _, row in line_hours.iterrows()
         ],
         raw_rows=df.to_dict(orient="records"),
+    )
+
+
+def build_technicians_payload(
+    locale: Locale,
+    df: pd.DataFrame,
+    selected_technician: str | None,
+) -> TechniciansResponse:
+    expanded = expand_task_reports_by_technician(df)
+    if expanded.empty:
+        return TechniciansResponse(
+            locale=locale,
+            kpis=[
+                KpiMetric(id="technicians", label="Technicians", value=0),
+                KpiMetric(id="reports", label="Reports", value=0),
+                KpiMetric(id="hours", label="Hours", value=0, unit="h"),
+                KpiMetric(id="avg_hours", label="Avg hours/person", value=0, unit="h"),
+            ],
+            selected_technician=selected_technician,
+            technician_hours=[],
+            technician_reports=[],
+            service_breakdown=[],
+            device_breakdown=[],
+            line_breakdown=[],
+            rows=[],
+        )
+
+    technician_hours = (
+        expanded.groupby("technician_name", as_index=False)["allocated_hours"]
+        .sum()
+        .sort_values("allocated_hours", ascending=False)
+    )
+    technician_reports = (
+        expanded.groupby("technician_name", as_index=False)["report_nr"]
+        .nunique()
+        .rename(columns={"report_nr": "reports"})
+        .sort_values("reports", ascending=False)
+    )
+
+    focus_name = selected_technician or str(technician_hours.iloc[0]["technician_name"])
+    focused = expanded[expanded["technician_name"] == focus_name].copy()
+    if focused.empty:
+        focus_name = str(technician_hours.iloc[0]["technician_name"])
+        focused = expanded[expanded["technician_name"] == focus_name].copy()
+
+    service_breakdown = (
+        focused.groupby("service_name", as_index=False)["allocated_hours"]
+        .sum()
+        .sort_values("allocated_hours", ascending=False)
+        .head(10)
+    )
+    device_breakdown = (
+        focused.groupby("device_name", as_index=False)["allocated_hours"]
+        .sum()
+        .sort_values("allocated_hours", ascending=False)
+        .head(10)
+    )
+    line_breakdown = (
+        focused.groupby("line", as_index=False)["allocated_hours"]
+        .sum()
+        .sort_values("allocated_hours", ascending=False)
+        .head(10)
+    )
+    focused_rows = (
+        focused.sort_values(["report_date", "report_nr"], ascending=[False, False])
+        .head(40)
+    )
+
+    total_allocated_hours = float(expanded["allocated_hours"].sum())
+    avg_hours = total_allocated_hours / max(len(technician_hours), 1)
+
+    return TechniciansResponse(
+        locale=locale,
+        kpis=[
+            KpiMetric(id="technicians", label="Technicians", value=int(len(technician_hours))),
+            KpiMetric(id="reports", label="Reports", value=int(expanded["report_nr"].nunique())),
+            KpiMetric(id="hours", label="Allocated hours", value=round(total_allocated_hours, 1), unit="h"),
+            KpiMetric(id="avg_hours", label="Avg hours/person", value=round(avg_hours, 1), unit="h"),
+        ],
+        selected_technician=focus_name,
+        technician_hours=[
+            NamedMetric(name=str(row["technician_name"]), value=round(float(row["allocated_hours"]), 2))
+            for _, row in technician_hours.head(30).iterrows()
+        ],
+        technician_reports=[
+            NamedMetric(name=str(row["technician_name"]), value=float(row["reports"]))
+            for _, row in technician_reports.head(30).iterrows()
+        ],
+        service_breakdown=[
+            NamedMetric(name=str(row["service_name"]), value=round(float(row["allocated_hours"]), 2))
+            for _, row in service_breakdown.iterrows()
+        ],
+        device_breakdown=[
+            NamedMetric(name=str(row["device_name"]), value=round(float(row["allocated_hours"]), 2))
+            for _, row in device_breakdown.iterrows()
+        ],
+        line_breakdown=[
+            NamedMetric(name=str(row["line"]), value=round(float(row["allocated_hours"]), 2))
+            for _, row in line_breakdown.iterrows()
+        ],
+        rows=[
+            TechnicianWorkRow(
+                technician_name=str(row["technician_name"]),
+                report_nr=str(row["report_nr"]),
+                service_name=str(row["service_name"]),
+                device_name=str(row["device_name"]),
+                line=str(row["line"]),
+                report_date=row["report_date"].isoformat() if pd.notna(row["report_date"]) else None,
+                allocated_hours=round(float(row["allocated_hours"]), 2),
+                source_total_hours=round(float(row["source_total_hours"]), 2),
+            )
+            for _, row in focused_rows.iterrows()
+        ],
     )
