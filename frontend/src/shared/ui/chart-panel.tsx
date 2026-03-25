@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 type Series = {
   x: string[];
@@ -78,6 +78,21 @@ function formatCompactValue(value: number) {
   return `${Number(value.toFixed(1))}`;
 }
 
+function summaryPrefix(type: "scatter" | "bar" | "pie", isPie: boolean, hasMultipleSeries: boolean) {
+  if (isPie) return "Total";
+  if (type === "bar") return hasMultipleSeries ? "Latest" : "Last";
+  return "Last";
+}
+
+function hexToRgba(value: string, alpha: number) {
+  const clean = value.replace("#", "");
+  if (clean.length !== 6) return value;
+  const red = Number.parseInt(clean.slice(0, 2), 16);
+  const green = Number.parseInt(clean.slice(2, 4), 16);
+  const blue = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
+
 function linePath(values: number[], width: number, height: number, offsetX: number, offsetY: number, min: number, max: number) {
   const range = max - min || 1;
   return values
@@ -117,6 +132,7 @@ function PieChart({
   isSpotlight: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const gradientId = useId().replace(/:/g, "");
   const colors = chartColors(isSpotlight, themeMode);
   const total = data.values.reduce((sum, value) => sum + value, 0) || 1;
   const width = 760;
@@ -171,6 +187,12 @@ function PieChart({
         ) : null}
 
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height: `${height}px` }}>
+          <defs>
+            <radialGradient id={`${gradientId}-pie-core`} cx="50%" cy="44%" r="72%">
+              <stop offset="0%" stopColor={themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.98)"} />
+              <stop offset="100%" stopColor={themeMode === "dark" ? "rgba(15,23,42,0.92)" : "rgba(248,250,252,0.96)"} />
+            </radialGradient>
+          </defs>
           <circle cx={centerX} cy={centerY} r={radius} fill="none" stroke={colors.track} strokeWidth="28" />
           {slices.map((slice, index) =>
             slice.path ? (
@@ -193,7 +215,7 @@ function PieChart({
             cx={centerX}
             cy={centerY}
             r="70"
-            fill={themeMode === "dark" ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.96)"}
+            fill={`url(#${gradientId}-pie-core)`}
             stroke={themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)"}
           />
           {centerMain ? (
@@ -247,6 +269,7 @@ function CartesianChart({
   isSpotlight: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const chartId = useId().replace(/:/g, "");
   const colors = chartColors(isSpotlight, themeMode);
   const width = 760;
   const chartHeight = Math.max(height - 46, 170);
@@ -298,6 +321,21 @@ function CartesianChart({
         ) : null}
 
         <svg viewBox={`0 0 ${width} ${chartHeight}`} className="w-full" style={{ height: `${height}px` }}>
+          <defs>
+            {chartSeries.map((item, index) => (
+              <linearGradient
+                key={`${item.name}-${index}-gradient`}
+                id={`${chartId}-series-${index}`}
+                x1="0"
+                x2="0"
+                y1="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={hexToRgba(item.color, defaultType === "bar" || item.kind === "bar" ? 0.95 : 0.3)} />
+                <stop offset="100%" stopColor={hexToRgba(item.color, defaultType === "bar" || item.kind === "bar" ? 0.58 : 0.04)} />
+              </linearGradient>
+            ))}
+          </defs>
           {ticks.map((tick) => {
             const y = yForValue(tick);
             return (
@@ -339,9 +377,9 @@ function CartesianChart({
                     y={y}
                     width={barWidth}
                     height={Math.max(barHeight, 1)}
-                    rx="2"
-                    fill={item.color}
-                    opacity={hoveredIndex === null || hoveredIndex === index ? 0.96 : 0.64}
+                    rx="3"
+                    fill={`url(#${chartId}-series-${barIndex})`}
+                    opacity={hoveredIndex === null || hoveredIndex === index ? 0.98 : 0.6}
                   />
                 );
               });
@@ -350,10 +388,10 @@ function CartesianChart({
             const path = linePath(item.y, plotWidth, plotHeight, paddingLeft, paddingTop, minValue, maxValue);
             return (
               <g key={item.name}>
-                {item.fill ? (
+                {item.fill || chartSeries.length === 1 ? (
                   <path
                     d={`${path} L ${paddingLeft + plotWidth} ${baselineY} L ${paddingLeft} ${baselineY} Z`}
-                    fill={themeMode === "dark" ? `${item.color}22` : `${item.color}20`}
+                    fill={`url(#${chartId}-series-${chartSeries.findIndex((entry) => entry.name === item.name && entry.color === item.color)})`}
                     stroke="none"
                   />
                 ) : null}
@@ -410,8 +448,10 @@ function CartesianChart({
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
           {chartSeries.map((item) => (
             <div key={item.name} className="flex items-center gap-2" style={{ color: colors.mutedText }}>
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-              <span>{item.name}</span>
+              <span className="rounded-full border px-2.5 py-1" style={{ borderColor: colors.grid }}>
+                <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                <span>{item.name}</span>
+              </span>
             </div>
           ))}
         </div>
@@ -436,16 +476,36 @@ export function ChartPanel({
     () => (Array.isArray(series) ? series : "labels" in series ? null : [series]),
     [series],
   );
+  const isPie = "labels" in (series as PieSeries) && type === "pie";
+  const summaryLabel =
+    isPie
+      ? formatCompactValue((series as PieSeries).values.reduce((sum, value) => sum + value, 0))
+      : seriesArray?.[0]?.y.length
+        ? formatCompactValue(seriesArray[0].y.at(-1) ?? 0)
+        : null;
 
   return (
     <section className={frameClass}>
       <div className="card-body gap-4">
-        <div className="space-y-2">
-          <div className={titleClass(isSpotlight, themeMode)}>{title}</div>
-          {subtitle ? <div className={subtitleClass(isSpotlight, themeMode)}>{subtitle}</div> : null}
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className={titleClass(isSpotlight, themeMode)}>{title}</div>
+            {subtitle ? <div className={subtitleClass(isSpotlight, themeMode)}>{subtitle}</div> : null}
+          </div>
+          {summaryLabel ? (
+            <div
+              className="rounded-full border px-3 py-1 text-xs font-semibold"
+              style={{
+                borderColor: chartColors(isSpotlight, themeMode).grid,
+                color: chartColors(isSpotlight, themeMode).mutedText,
+              }}
+            >
+              {summaryPrefix(type, isPie, Boolean(seriesArray && seriesArray.length > 1))} {summaryLabel}
+            </div>
+          ) : null}
         </div>
 
-        {"labels" in (series as PieSeries) && type === "pie" ? (
+        {isPie ? (
           <PieChart data={series as PieSeries} centerLabel={centerLabel} height={height} themeMode={themeMode} isSpotlight={isSpotlight} />
         ) : seriesArray?.length ? (
           <CartesianChart

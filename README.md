@@ -25,7 +25,7 @@ pip install -r requirements.txt
 ## Backend dev
 
 ```powershell
-.venv\Scripts\python -m uvicorn backend.app.main:app --reload
+.venv\Scripts\python -m uvicorn backend.app.main:app --reload --port 8010
 ```
 
 ## Frontend dev
@@ -36,7 +36,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`, so the frontend can keep using relative API paths during local development.
+The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8010`, so the frontend can keep using relative API paths during local development.
 
 ## Legacy Streamlit fallback
 
@@ -91,7 +91,7 @@ docker compose up --build
 
 The app will be available at:
 
-- `http://127.0.0.1:8000`
+- `http://127.0.0.1:8010`
 
 Example `.env` values for Compose:
 
@@ -117,7 +117,7 @@ This repo is now set up to deploy in Coolify directly from the `Dockerfile`.
 Recommended Coolify setup:
 
 - Build Pack: `Dockerfile`
-- Port: `8000`
+- Port: `8010`
 - Health check path: `/health`
 - Domain / proxy: handled by Coolify
 
@@ -136,7 +136,7 @@ Optional:
 - `DEFAULT_DATE_END`
 - `TASKREPORTS_DATE_TYPE`
 - `DEFAULT_LOCALE`
-- `PORT=8000`
+- `PORT=8010`
 
 Notes:
 
