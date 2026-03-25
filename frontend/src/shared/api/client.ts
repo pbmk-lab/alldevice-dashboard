@@ -69,6 +69,87 @@ export type DataQualityResponse = {
 export type DebugResponse = {
   statuses: Array<{ endpoint: string; ok: boolean; row_count: number; details: string }>;
 };
+export type SparkMetric = {
+  id: string;
+  label: string;
+  value: number;
+  suffix: string;
+  trend: number[];
+};
+export type DonutSlice = {
+  name: string;
+  value: number;
+  color: string;
+};
+export type ProblemDeviceRow = {
+  device_name: string;
+  incidents: number;
+  last_issue?: string | null;
+  mtbf_hours: number;
+  mttr_hours: number;
+};
+export type OpenDowntimeRow = {
+  device_name: string;
+  line: string;
+  started_at?: string | null;
+  last_service?: string | null;
+  duration_hours: number;
+};
+export type PlannedActualPoint = {
+  period: string;
+  planned: number;
+  actual: number;
+};
+export type MixPoint = {
+  period: string;
+  planned: number;
+  unplanned: number;
+  quality: number;
+};
+export type OperationsWindowResponse = {
+  locale: Locale;
+  spark_metrics: SparkMetric[];
+  task_status: DonutSlice[];
+  problem_devices: ProblemDeviceRow[];
+  open_downtimes: OpenDowntimeRow[];
+  planned_vs_actual: PlannedActualPoint[];
+  mix_trend: MixPoint[];
+  work_hours_12m: TrendPoint[];
+};
+export type TaskBoardRow = {
+  task_id: number;
+  task_number: string;
+  device_name: string;
+  service_name: string;
+  line: string;
+  priority: string;
+  overdue_pct: number;
+  due_date?: string | null;
+  task_status?: string | null;
+  status_bucket?: string | null;
+  service_type?: string | null;
+  assigned_users: string[];
+  estimated_hours: number;
+  spares_cost: number;
+};
+export type TaskBoardResponse = {
+  locale: Locale;
+  kpis: KpiMetric[];
+  status_buckets: NamedMetric[];
+  priority_breakdown: NamedMetric[];
+  service_type_breakdown: NamedMetric[];
+  overdue_trend: TrendPoint[];
+  distribution_trend: Array<{ period: string; emergency: number; planned: number; regular: number }>;
+  rows: TaskBoardRow[];
+};
+export type CostsResponse = {
+  locale: Locale;
+  kpis: KpiMetric[];
+  monthly_total_costs: TrendPoint[];
+  monthly_cost_breakdown: Array<{ period: string; labor: number; extra: number; spares: number }>;
+  service_costs: NamedMetric[];
+  line_costs: NamedMetric[];
+};
 
 export type FiltersState = {
   locale: Locale;
@@ -118,4 +199,8 @@ export const api = {
   workReports: (filters: FiltersState) => getJson<WorkReportsResponse>("work-reports", filters),
   dataQuality: (filters: FiltersState) => getJson<DataQualityResponse>("data-quality", filters),
   debug: (filters: FiltersState) => getJson<DebugResponse>("debug/upstream", filters),
+  operationsWindow: (filters: FiltersState) =>
+    getJson<OperationsWindowResponse>("operations-window", filters),
+  tasks: (filters: FiltersState) => getJson<TaskBoardResponse>("tasks", filters),
+  costs: (filters: FiltersState) => getJson<CostsResponse>("costs", filters),
 };

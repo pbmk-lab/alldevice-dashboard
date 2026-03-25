@@ -21,14 +21,17 @@ UPSTREAM_ENV_ALIASES: dict[str, tuple[str, ...]] = {
     "API_BASE_URL": ("ALLDEVICE_API_BASE_URL", "API_BASE_URL"),
     "BASE_URL": ("ALLDEVICE_BASE_URL", "BASE_URL"),
     "TASKREPORTS_URL": ("ALLDEVICE_TASKREPORTS_URL", "TASKREPORTS_URL"),
+    "TASKS_URL": ("ALLDEVICE_TASKS_URL", "TASKS_URL"),
     "DOWNTIME_PATH": ("ALLDEVICE_DOWNTIME_PATH", "DOWNTIME_PATH"),
     "TASKREPORTS_PATH": ("ALLDEVICE_TASKREPORTS_PATH", "TASKREPORTS_PATH"),
+    "TASKS_PATH": ("ALLDEVICE_TASKS_PATH", "TASKS_PATH"),
     "USERNAME": ("ALLDEVICE_USERNAME", "USERNAME"),
     "PASSWORD": ("ALLDEVICE_PASSWORD", "PASSWORD"),
     "API_KEY": ("ALLDEVICE_API_KEY", "API_KEY"),
 }
 DEFAULT_DOWNTIME_PATH = "/api/downtimes/list"
 DEFAULT_TASKREPORTS_PATH = "/api/taskreports/list"
+DEFAULT_TASKS_PATH = "/api/tasks/list"
 
 
 def _read_secret_file() -> dict[str, str]:
@@ -59,10 +62,21 @@ def _join_api_url(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
+def _derive_api_base_url(*urls: str) -> str:
+    for url in urls:
+        if not url:
+            continue
+        marker = "/api/"
+        if marker in url:
+            return url.split(marker, 1)[0]
+    return ""
+
+
 @dataclass(frozen=True)
 class Settings:
     base_url: str
     taskreports_url: str
+    tasks_url: str
     username: str
     password: str
     api_key: str
@@ -79,6 +93,7 @@ class Settings:
             for name, value in (
                 ("BASE_URL", self.base_url),
                 ("TASKREPORTS_URL", self.taskreports_url),
+                ("TASKS_URL", self.tasks_url),
                 ("USERNAME", self.username),
                 ("PASSWORD", self.password),
                 ("API_KEY", self.api_key),
@@ -105,17 +120,24 @@ def get_settings() -> Settings:
     taskreports_path = _read_upstream_value(
         secret_file, "TASKREPORTS_PATH", DEFAULT_TASKREPORTS_PATH
     )
+    tasks_path = _read_upstream_value(secret_file, "TASKS_PATH", DEFAULT_TASKS_PATH)
     downtime_url = _read_upstream_value(secret_file, "BASE_URL")
     taskreports_url = _read_upstream_value(secret_file, "TASKREPORTS_URL")
+    tasks_url = _read_upstream_value(secret_file, "TASKS_URL")
 
     if not downtime_url and api_base_url:
         downtime_url = _join_api_url(api_base_url, downtime_path)
     if not taskreports_url and api_base_url:
         taskreports_url = _join_api_url(api_base_url, taskreports_path)
+    if not api_base_url:
+        api_base_url = _derive_api_base_url(downtime_url, taskreports_url)
+    if not tasks_url and api_base_url:
+        tasks_url = _join_api_url(api_base_url, tasks_path)
 
     return Settings(
         base_url=downtime_url,
         taskreports_url=taskreports_url,
+        tasks_url=tasks_url,
         username=_read_upstream_value(secret_file, "USERNAME"),
         password=_read_upstream_value(secret_file, "PASSWORD"),
         api_key=_read_upstream_value(secret_file, "API_KEY"),

@@ -61,6 +61,7 @@ def test_api_base_url_builds_both_upstream_urls(monkeypatch) -> None:
         settings = config.get_settings()
         assert settings.base_url == "https://example.com/api/downtimes/list"
         assert settings.taskreports_url == "https://example.com/api/taskreports/list"
+        assert settings.tasks_url == "https://example.com/api/tasks/list"
     finally:
         config.get_settings.cache_clear()
 
@@ -83,5 +84,26 @@ def test_api_base_url_can_use_custom_paths(monkeypatch) -> None:
         settings = config.get_settings()
         assert settings.base_url == "https://example.com/root/custom/downtime"
         assert settings.taskreports_url == "https://example.com/root/custom/reports"
+        assert settings.tasks_url == "https://example.com/root/api/tasks/list"
+    finally:
+        config.get_settings.cache_clear()
+
+
+def test_tasks_url_can_be_derived_from_existing_endpoint_urls(monkeypatch) -> None:
+    monkeypatch.setattr(
+        config,
+        "_read_secret_file",
+        lambda: {
+            "BASE_URL": "https://example.com/api/downtimes/list",
+            "TASKREPORTS_URL": "https://example.com/api/taskreports/list",
+            "USERNAME": "api-user",
+            "PASSWORD": "api-password",
+            "API_KEY": "api-key",
+        },
+    )
+    config.get_settings.cache_clear()
+    try:
+        settings = config.get_settings()
+        assert settings.tasks_url == "https://example.com/api/tasks/list"
     finally:
         config.get_settings.cache_clear()

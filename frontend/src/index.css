@@ -34,6 +34,13 @@ body {
     linear-gradient(180deg, #eef5f7 0%, #edf3f5 56%, #f4ecdf 100%);
 }
 
+body[data-app-theme="dark"] {
+  background:
+    radial-gradient(circle at top left, rgba(10, 132, 173, 0.18), transparent 24%),
+    radial-gradient(circle at 85% 18%, rgba(255, 92, 138, 0.1), transparent 20%),
+    linear-gradient(180deg, #071018 0%, #0a1118 48%, #101720 100%);
+}
+
 a {
   color: inherit;
   text-decoration: none;

@@ -6,10 +6,10 @@ import { tx, type Locale } from "../../shared/i18n/translations";
 import { ChartPanel } from "../../shared/ui/chart-panel";
 import { PageState } from "../../shared/ui/page-state";
 
-type Context = { locale: Locale; filters: FiltersState };
+type Context = { locale: Locale; filters: FiltersState; themeMode: "light" | "dark" };
 
 export function WorkReportsPage() {
-  const { locale, filters } = useOutletContext<Context>();
+  const { locale, filters, themeMode } = useOutletContext<Context>();
   const query = useQuery({ queryKey: ["work-reports", filters], queryFn: () => api.workReports(filters) });
 
   if (query.isLoading) return <PageState kind="loading" message={tx(locale, "loading")} />;
@@ -125,6 +125,7 @@ export function WorkReportsPage() {
         <ChartPanel
           title={tx(locale, "technicianHours")}
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.technician_hours.map((item) => item.name),
             y: data.technician_hours.map((item) => item.value),
@@ -135,6 +136,7 @@ export function WorkReportsPage() {
         <ChartPanel
           title={tx(locale, "serviceHours")}
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.service_hours.map((item) => item.name),
             y: data.service_hours.map((item) => item.value),
@@ -148,6 +150,7 @@ export function WorkReportsPage() {
         <ChartPanel
           title={tx(locale, "lineHours")}
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.line_hours.map((item) => item.name),
             y: data.line_hours.map((item) => item.value),

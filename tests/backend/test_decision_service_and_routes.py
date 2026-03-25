@@ -34,6 +34,7 @@ def build_settings() -> Settings:
     return Settings(
         base_url="https://example.com/base",
         taskreports_url="https://example.com/reports",
+        tasks_url="https://example.com/tasks",
         username="u",
         password="p",
         api_key="k",
@@ -62,6 +63,30 @@ class StubClient:
                     }
                 ],
             }
+        }
+
+    async def fetch_tasks(self, date_start: str, date_end: str) -> dict:
+        return {
+            "success": True,
+            "response": {
+                "total": 1,
+                "data": [
+                    {
+                        "task_id": 99,
+                        "task_number_combined": "T-99",
+                        "device_name": "Press A",
+                        "service_name": "Check pressure",
+                        "priority_name": "high",
+                        "task_status": "critical",
+                        "service_type": "planned",
+                        "service_date": "2025-01-15",
+                        "created_on": "2025-01-10 08:00:00",
+                        "overdue": 50,
+                        "service_duration": 2,
+                        "users": [{"name": "Tech A"}],
+                    }
+                ],
+            },
         }
 
 
@@ -115,6 +140,65 @@ def test_overview_route_uses_dependency_override() -> None:
     body = response.json()
     assert body["top_line"] == "01. 1 LĪNIJA"
     assert body["kpis"][0]["id"] == "mttr"
+
+
+def test_operations_window_route_uses_dependency_override() -> None:
+    service = DecisionService(build_settings())
+    service.client = StubClient()
+    app.dependency_overrides[get_decision_service] = lambda: service
+
+    try:
+        client = TestClient(app)
+        response = client.get(
+            "/api/operations-window",
+            params={"date_start": "2025-01-01", "date_end": "2025-01-31", "locale": "lv"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "spark_metrics" in body
+    assert "problem_devices" in body
+    assert "open_downtimes" in body
+
+
+def test_tasks_route_uses_dependency_override() -> None:
+    service = DecisionService(build_settings())
+    service.client = StubClient()
+    app.dependency_overrides[get_decision_service] = lambda: service
+
+    try:
+        client = TestClient(app)
+        response = client.get(
+            "/api/tasks",
+            params={"date_start": "2025-01-01", "date_end": "2025-01-31", "locale": "lv"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rows"][0]["task_number"] == "T-99"
+
+
+def test_costs_route_uses_dependency_override() -> None:
+    service = DecisionService(build_settings())
+    service.client = StubClient()
+    app.dependency_overrides[get_decision_service] = lambda: service
+
+    try:
+        client = TestClient(app)
+        response = client.get(
+            "/api/costs",
+            params={"date_start": "2025-01-01", "date_end": "2025-01-31", "locale": "lv"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "monthly_total_costs" in body
 
 
 def test_bad_task_report_shape_returns_502() -> None:

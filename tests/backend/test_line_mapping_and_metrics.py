@@ -54,6 +54,7 @@ def build_settings() -> Settings:
     return Settings(
         base_url="https://example.com/base",
         taskreports_url="https://example.com/reports",
+        tasks_url="https://example.com/tasks",
         username="u",
         password="p",
         api_key="k",
@@ -81,11 +82,12 @@ def test_kpi_calculation_matches_expected_shape() -> None:
     assert round(float(kpis["total_downtime_hours"]), 2) == 6.0
 
 
-def test_filters_payload_uses_source_dates() -> None:
+def test_filters_payload_extends_picker_to_today() -> None:
     df = normalize_downtime_rows(SAMPLE_ROWS, "lv")
     payload = build_filters_payload(df, build_settings())
     assert payload.min_date == date(2025, 1, 1)
-    assert payload.max_date == date(2025, 1, 4)
+    assert payload.max_date == max(date(2025, 1, 4), date.today())
+    assert payload.default_end == max(date(2025, 1, 4), date.today())
 
 
 def test_overview_contains_quality_alert() -> None:

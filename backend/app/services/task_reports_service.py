@@ -23,6 +23,21 @@ def normalize_task_report_rows(rows: list[dict]) -> pd.DataFrame:
     df["user_name_list"] = df.get("user_name_list", "").fillna("Nav norādīts")
     df["report_nr"] = df.get("report_nr", "").fillna("Nav norādīts")
     df["report_line"] = df["device_location"].apply(extract_line)
+    for cost_column in (
+        "total_cost",
+        "extra_total_cost",
+        "spares_total_cost",
+        "retail_total_cost",
+        "retail_extra_total_cost",
+        "retail_spares_total_cost",
+        "retail_with_vat_total_cost",
+        "retail_with_vat_extra_total_cost",
+        "retail_with_vat_spares_total_cost",
+    ):
+        if cost_column in df.columns:
+            df[cost_column] = pd.to_numeric(df[cost_column], errors="coerce").fillna(0)
+        else:
+            df[cost_column] = 0.0
     for column in ("completed_date", "created_date", "date"):
         if column in df.columns:
             df["report_date"] = pd.to_datetime(df[column], errors="coerce")

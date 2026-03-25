@@ -1,16 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useSearchParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import { type Locale, tx } from "../i18n/translations";
 import { DateRangePicker, getDateRangeTag } from "./date-range-picker";
+import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
   { to: "/", key: "overview" as const },
   { to: "/triage", key: "triage" as const },
   { to: "/devices", key: "devices" as const },
   { to: "/work-reports", key: "workReports" as const },
+  { to: "/tasks", key: "tasks" as const },
+  { to: "/costs", key: "costs" as const },
   { to: "/data-quality", key: "dataQuality" as const },
   { to: "/admin", key: "admin" as const },
 ];
@@ -19,6 +22,10 @@ export function AppLayout() {
   const { data } = useQuery({ queryKey: ["filters-bootstrap"], queryFn: api.filters });
   const [searchParams, setSearchParams] = useSearchParams();
   const [lineQuery, setLineQuery] = useState("");
+  const [themeMode, setThemeMode] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    return window.localStorage.getItem("app-theme") === "dark" ? "dark" : "light";
+  });
   const allLines = data?.lines ?? [];
 
   const locale = (searchParams.get("locale") as Locale | null) ?? data?.default_locale ?? "lv";
@@ -31,6 +38,12 @@ export function AppLayout() {
   const periodTag = data ? getDateRangeTag(locale, dateStart, dateEnd, data.min_date, data.max_date) : null;
   const lineSummary = lineMode === "all" ? `${allLines.length} / ${allLines.length}` : `${activeLines.length}`;
   const visibleLines = allLines.filter((line) => line.toLowerCase().includes(lineQuery.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("app-theme", themeMode);
+    document.body.dataset.appTheme = themeMode;
+  }, [themeMode]);
 
   const patchParams = (patch: Record<string, string | string[]>) => {
     const next = new URLSearchParams(searchParams);
@@ -108,6 +121,17 @@ export function AppLayout() {
               </div>
             )}
           </div>
+
+          <section className="rounded-[1.4rem] border border-white/6 bg-base-200/45 p-4">
+            <div className="text-base-content/60 mb-3 text-xs font-semibold uppercase tracking-[0.22em]">{tx(locale, "theme")}</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-white">{themeMode === "dark" ? tx(locale, "darkTheme") : tx(locale, "lightTheme")}</div>
+                <div className="text-xs text-white/55">{tx(locale, "theme")}</div>
+              </div>
+              <ThemeToggle mode={themeMode} onChange={setThemeMode} />
+            </div>
+          </section>
 
           <section className="bg-base-200/45 rounded-[1.4rem] border border-white/6 p-4">
             <div className="mb-3 flex items-end justify-between gap-3">
@@ -196,7 +220,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main data-theme="corporate" className="relative z-0 min-w-0 px-4 py-5 text-base-content sm:px-6 lg:px-8">
+      <main data-theme={themeMode === "dark" ? "business" : "corporate"} className="relative z-0 min-w-0 px-4 py-5 text-base-content sm:px-6 lg:px-8">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
             <div>
@@ -213,16 +237,27 @@ export function AppLayout() {
             </div>
           </div>
 
-          <div className="join self-start">
-            {(["lv", "en"] as const).map((item) => (
-              <button
-                key={item}
-                className={`btn btn-sm join-item ${item === locale ? "btn-primary" : "btn-outline"}`}
-                onClick={() => patchParams({ locale: item })}
-              >
-                {item.toUpperCase()}
-              </button>
-            ))}
+          <div className="flex self-start items-center gap-2">
+            <a
+              className="btn btn-sm btn-outline"
+              href={`/operations-window?${searchParams.toString()}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {tx(locale, "openBoardWindow")}
+            </a>
+            <ThemeToggle mode={themeMode} onChange={setThemeMode} compact />
+            <div className="join">
+              {(["lv", "en"] as const).map((item) => (
+                <button
+                  key={item}
+                  className={`btn btn-sm join-item ${item === locale ? "btn-primary" : "btn-outline"}`}
+                  onClick={() => patchParams({ locale: item })}
+                >
+                  {item.toUpperCase()}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -235,6 +270,7 @@ export function AppLayout() {
               dateEnd,
               lines: filterLines,
             },
+            themeMode,
             availableLines: allLines,
           }}
         />

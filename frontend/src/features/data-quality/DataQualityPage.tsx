@@ -6,10 +6,10 @@ import { tx, type Locale } from "../../shared/i18n/translations";
 import { ChartPanel } from "../../shared/ui/chart-panel";
 import { PageState } from "../../shared/ui/page-state";
 
-type Context = { locale: Locale; filters: FiltersState };
+type Context = { locale: Locale; filters: FiltersState; themeMode: "light" | "dark" };
 
 export function DataQualityPage() {
-  const { locale, filters } = useOutletContext<Context>();
+  const { locale, filters, themeMode } = useOutletContext<Context>();
   const query = useQuery({ queryKey: ["data-quality", filters], queryFn: () => api.dataQuality(filters) });
 
   if (query.isLoading) return <PageState kind="loading" message={tx(locale, "loading")} />;
@@ -158,6 +158,7 @@ export function DataQualityPage() {
         <ChartPanel
           title="Missing cause by line"
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.quality_by_line.map((item) => item.name),
             y: data.quality_by_line.map((item) => item.value),
@@ -168,6 +169,7 @@ export function DataQualityPage() {
         <ChartPanel
           title="Anomaly distribution"
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.anomaly_distribution.map((item) => item.name),
             y: data.anomaly_distribution.map((item) => item.value),

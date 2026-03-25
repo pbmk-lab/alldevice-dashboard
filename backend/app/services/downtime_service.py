@@ -71,12 +71,14 @@ def build_filters_payload(df: pd.DataFrame, settings: Settings) -> FiltersRespon
     if pd.isna(min_date) or pd.isna(max_date):
         min_date = pd.Timestamp(settings.default_date_start)
         max_date = pd.Timestamp(settings.default_date_end)
+    today = pd.Timestamp(date.today())
+    picker_max = max(max_date, today)
     return FiltersResponse(
         lines=ordered_lines(),
         min_date=min_date.date(),
-        max_date=max_date.date(),
+        max_date=picker_max.date(),
         default_start=min_date.date(),
-        default_end=max_date.date(),
+        default_end=picker_max.date(),
         default_locale=settings.default_locale,  # type: ignore[arg-type]
     )
 

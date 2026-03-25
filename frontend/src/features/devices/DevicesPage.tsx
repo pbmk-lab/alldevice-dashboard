@@ -1,15 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 
 import { api, type FiltersState } from "../../shared/api/client";
 import { tx, type Locale } from "../../shared/i18n/translations";
 import { ChartPanel } from "../../shared/ui/chart-panel";
 import { PageState } from "../../shared/ui/page-state";
 
-type Context = { locale: Locale; filters: FiltersState; availableLines: string[] };
+type Context = { locale: Locale; filters: FiltersState; availableLines: string[]; themeMode: "light" | "dark" };
 
 export function DevicesPage() {
-  const { locale, filters, availableLines } = useOutletContext<Context>();
+  const { locale, filters, availableLines, themeMode } = useOutletContext<Context>();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLine = searchParams.get("device_line") ?? "";
   const query = useQuery({
@@ -17,20 +17,78 @@ export function DevicesPage() {
     queryFn: () => api.devices(filters, selectedLine || undefined),
   });
 
-  if (query.isLoading) return <PageState kind="loading" message={tx(locale, "loading")} />;
-  if (query.isError) return <PageState kind="error" message={tx(locale, "error")} />;
-  if (!query.data?.top_devices.length) return <PageState kind="empty" message={tx(locale, "empty")} />;
-
-  const data = query.data;
-  const focusDevice = data.top_devices[0];
-  const maxDowntime = data.top_devices[0]?.downtime_hours || 1;
-
   const setLineFocus = (value: string) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set("device_line", value);
     else next.delete("device_line");
     setSearchParams(next, { replace: true });
   };
+
+  if (query.isLoading) return <PageState kind="loading" message={tx(locale, "loading")} />;
+  if (query.isError) return <PageState kind="error" message={tx(locale, "error")} />;
+  if (!query.data?.top_devices.length) {
+    return (
+      <div className="space-y-5">
+        <section className="hero rounded-[2rem] border border-base-300/70 bg-gradient-to-br from-base-100 via-base-100 to-primary/10 shadow-sm">
+          <div className="hero-content w-full max-w-none justify-between gap-6 px-6 py-8">
+            <div className="max-w-2xl">
+              <div className="text-base-content/72 mb-3 text-xs font-semibold uppercase tracking-[0.24em]">
+                {tx(locale, "devices")}
+              </div>
+              <h3 className="text-base-content text-3xl font-semibold tracking-tight">{tx(locale, "devicesEmptyTitle")}</h3>
+              <p className="text-base-content/78 mt-3 text-sm">{tx(locale, "devicesEmptyHint")}</p>
+            </div>
+
+            <div className="stats stats-vertical lg:stats-horizontal border-base-300/60 bg-base-100/70 shadow-sm">
+              <div className="stat">
+                <div className="stat-title">{tx(locale, "selectedLine")}</div>
+                <div className="stat-value text-2xl">{selectedLine || tx(locale, "allLines")}</div>
+              </div>
+              <div className="stat">
+                <div className="stat-title">{tx(locale, "status")}</div>
+                <div className="stat-value text-xl">{tx(locale, "empty")}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="card border-base-300/70 bg-base-100 shadow-sm">
+          <div className="card-body gap-4">
+            <div className="text-base-content/72 text-xs font-semibold uppercase tracking-[0.22em]">
+              {tx(locale, "lineFocus")}
+            </div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <select className="select select-bordered w-full max-w-md" value={selectedLine} onChange={(event) => setLineFocus(event.target.value)}>
+                <option value="">{tx(locale, "allLines")}</option>
+                {availableLines.map((line) => (
+                  <option key={line} value={line}>
+                    {line}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn btn-outline" onClick={() => setLineFocus("")}>
+                  {tx(locale, "resetLineFocus")}
+                </button>
+                <Link className="btn btn-primary" to={{ pathname: "/triage", search: searchParams.toString() }}>
+                  {tx(locale, "backToTriage")}
+                </Link>
+              </div>
+            </div>
+
+            <div className="alert alert-info">
+              <span>{tx(locale, "devicesEmptyHint")}</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const data = query.data;
+  const focusDevice = data.top_devices[0];
+  const maxDowntime = data.top_devices[0]?.downtime_hours || 1;
 
   return (
     <div className="space-y-5">
@@ -146,6 +204,7 @@ export function DevicesPage() {
       <section className="grid gap-5 xl:grid-cols-2">
         <ChartPanel
           title={tx(locale, "topDeviceTrend")}
+          themeMode={themeMode}
           series={{
             x: data.monthly_top_device_trend.map((item) => item.period),
             y: data.monthly_top_device_trend.map((item) => item.value),
@@ -156,6 +215,7 @@ export function DevicesPage() {
         <ChartPanel
           title={tx(locale, "causeContribution")}
           type="bar"
+          themeMode={themeMode}
           series={{
             x: data.category_breakdown.map((item) => item.name),
             y: data.category_breakdown.map((item) => item.value),

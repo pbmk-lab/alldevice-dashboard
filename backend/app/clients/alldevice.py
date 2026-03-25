@@ -63,3 +63,18 @@ class AlldeviceClient:
             "date_type": self.settings.taskreports_date_type,
         }
         return await self._post(self.settings.taskreports_url, payload)
+
+    async def fetch_tasks(
+        self,
+        date_start: str,
+        date_end: str,
+    ) -> dict[str, Any]:
+        payload = {
+            **self._auth_payload(),
+            "date_start": date_start,
+            "date_end": date_end,
+            "incomplete": 1,
+            "show_used_spares": True,
+            "limit": 200,
+        }
+        return await self._post(self.settings.tasks_url, payload)

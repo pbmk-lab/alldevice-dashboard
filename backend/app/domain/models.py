@@ -124,3 +124,108 @@ class DebugEndpointStatus(BaseModel):
 
 class DebugResponse(BaseModel):
     statuses: list[DebugEndpointStatus]
+
+
+class SparkMetric(BaseModel):
+    id: str
+    label: str
+    value: float
+    suffix: str = ""
+    trend: list[float] = Field(default_factory=list)
+
+
+class DonutSlice(BaseModel):
+    name: str
+    value: float
+    color: str
+
+
+class ProblemDeviceRow(BaseModel):
+    device_name: str
+    incidents: int
+    last_issue: str | None = None
+    mtbf_hours: float
+    mttr_hours: float
+
+
+class OpenDowntimeRow(BaseModel):
+    device_name: str
+    line: str
+    started_at: str | None = None
+    last_service: str | None = None
+    duration_hours: float
+
+
+class PlannedActualPoint(BaseModel):
+    period: str
+    planned: float
+    actual: float
+
+
+class MixPoint(BaseModel):
+    period: str
+    planned: float
+    unplanned: float
+    quality: float
+
+
+class OperationsWindowResponse(BaseModel):
+    locale: Locale
+    spark_metrics: list[SparkMetric]
+    task_status: list[DonutSlice]
+    problem_devices: list[ProblemDeviceRow]
+    open_downtimes: list[OpenDowntimeRow]
+    planned_vs_actual: list[PlannedActualPoint]
+    mix_trend: list[MixPoint]
+    work_hours_12m: list[TrendPoint]
+
+
+class TaskBoardRow(BaseModel):
+    task_id: int
+    task_number: str
+    device_name: str
+    service_name: str
+    line: str
+    priority: str
+    overdue_pct: int
+    due_date: str | None = None
+    task_status: str | None = None
+    status_bucket: str | None = None
+    service_type: str | None = None
+    assigned_users: list[str] = Field(default_factory=list)
+    estimated_hours: float = 0
+    spares_cost: float = 0
+
+
+class TaskMixPoint(BaseModel):
+    period: str
+    emergency: float
+    planned: float
+    regular: float
+
+
+class TaskBoardResponse(BaseModel):
+    locale: Locale
+    kpis: list[KpiMetric]
+    status_buckets: list[NamedMetric]
+    priority_breakdown: list[NamedMetric]
+    service_type_breakdown: list[NamedMetric]
+    overdue_trend: list[TrendPoint]
+    distribution_trend: list[TaskMixPoint]
+    rows: list[TaskBoardRow]
+
+
+class CostBreakdownPoint(BaseModel):
+    period: str
+    labor: float
+    extra: float
+    spares: float
+
+
+class CostsResponse(BaseModel):
+    locale: Locale
+    kpis: list[KpiMetric]
+    monthly_total_costs: list[TrendPoint]
+    monthly_cost_breakdown: list[CostBreakdownPoint]
+    service_costs: list[NamedMetric]
+    line_costs: list[NamedMetric]

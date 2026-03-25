@@ -6,16 +6,20 @@ from typing import Any
 from backend.app.clients.alldevice import AlldeviceClient, UpstreamAPIError
 from backend.app.core.config import Settings
 from backend.app.domain.models import (
+    CostsResponse,
     DataQualityResponse,
     DebugEndpointStatus,
     DebugResponse,
     DevicesResponse,
     FiltersResponse,
     Locale,
+    OperationsWindowResponse,
     OverviewResponse,
+    TaskBoardResponse,
     TriageResponse,
     WorkReportsResponse,
 )
+from backend.app.services.operations_window_service import build_operations_window_payload
 from backend.app.services.downtime_service import (
     build_bundle,
     build_devices_payload,
@@ -29,6 +33,12 @@ from backend.app.services.task_reports_service import (
     build_work_reports_payload,
     filter_task_reports,
     normalize_task_report_rows,
+)
+from backend.app.services.task_service import (
+    build_costs_payload,
+    build_task_board_payload,
+    filter_tasks,
+    normalize_task_rows,
 )
 
 
@@ -70,6 +80,20 @@ class DecisionService:
 
         return rows, total_reports_api
 
+    @staticmethod
+    def _extract_tasks_payload(response: dict[str, Any]) -> list[dict[str, Any]]:
+        if not response.get("success", False):
+            raise UpstreamAPIError("Tasks upstream returned success=false")
+
+        response_obj = response.get("response", {})
+        if not isinstance(response_obj, dict):
+            raise UpstreamAPIError("Tasks upstream response must be an object")
+
+        rows = response_obj.get("data", [])
+        if not isinstance(rows, list):
+            raise UpstreamAPIError("Tasks upstream data must be a list")
+        return rows
+
     async def get_filters(self, locale: Locale) -> FiltersResponse:
         response = await self.client.fetch_downtime(
             self.settings.default_date_start,
@@ -103,6 +127,23 @@ class DecisionService:
         bundle = build_bundle(df, lines, date_start, date_end, self.settings.analysis_max_hours)
         return build_triage_payload(locale, bundle)
 
+    async def get_operations_window(
+        self,
+        locale: Locale,
+        date_start: date,
+        date_end: date,
+        lines: list[str] | None,
+    ) -> OperationsWindowResponse:
+        downtime_response = await self.client.fetch_downtime(str(date_start), str(date_end))
+        downtime_df = normalize_downtime_rows(self._extract_downtime_rows(downtime_response), locale)
+        bundle = build_bundle(downtime_df, lines, date_start, date_end, self.settings.analysis_max_hours)
+
+        task_reports_response = await self.client.fetch_task_reports(str(date_start), str(date_end))
+        task_rows, _ = self._extract_task_reports_payload(task_reports_response)
+        task_df = normalize_task_report_rows(task_rows)
+        filtered_task_reports = filter_task_reports(task_df, lines, date_start, date_end)
+        return build_operations_window_payload(locale, bundle, filtered_task_reports, date_start, date_end)
+
     async def get_devices(
         self,
         locale: Locale,
@@ -128,6 +169,31 @@ class DecisionService:
         df = normalize_task_report_rows(rows)
         filtered = filter_task_reports(df, lines, date_start, date_end)
         return build_work_reports_payload(locale, filtered, total_reports_api)
+
+    async def get_task_board(
+        self,
+        locale: Locale,
+        date_start: date,
+        date_end: date,
+        lines: list[str] | None,
+    ) -> TaskBoardResponse:
+        response = await self.client.fetch_tasks(str(date_start), str(date_end))
+        df = normalize_task_rows(self._extract_tasks_payload(response))
+        filtered = filter_tasks(df, lines, date_start, date_end)
+        return build_task_board_payload(locale, filtered)
+
+    async def get_costs(
+        self,
+        locale: Locale,
+        date_start: date,
+        date_end: date,
+        lines: list[str] | None,
+    ) -> CostsResponse:
+        response = await self.client.fetch_task_reports(str(date_start), str(date_end))
+        rows, _ = self._extract_task_reports_payload(response)
+        df = normalize_task_report_rows(rows)
+        filtered = filter_task_reports(df, lines, date_start, date_end)
+        return build_costs_payload(locale, filtered)
 
     async def get_data_quality(
         self,
